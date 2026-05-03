@@ -1,0 +1,118 @@
+<graph id="Graph">
+  <version>1.0</version>
+  <node id="Read">
+    <operator>Read</operator>
+    <sources/>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <useAdvancedOptions>false</useAdvancedOptions>
+      <file>${product1}</file>
+      <copyMetadata>true</copyMetadata>
+      <bandNames/>
+      <maskNames/>
+    </parameters>
+  </node>
+  <node id="Read(2)">
+    <operator>Read</operator>
+    <sources/>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <useAdvancedOptions>false</useAdvancedOptions>
+      <file>${product2}</file>
+      <copyMetadata>true</copyMetadata>
+      <bandNames/>
+      <maskNames/>
+    </parameters>
+  </node>
+  <node id="AddElevation">
+    <operator>AddElevation</operator>
+    <sources>
+      <sourceProduct refid="CreateStack"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <demName>SRTM 3Sec</demName>
+      <demResamplingMethod>BILINEAR_INTERPOLATION</demResamplingMethod>
+      <externalDEMFile/>
+      <externalDEMNoDataValue>0.0</externalDEMNoDataValue>
+      <elevationBandName>elevation</elevationBandName>
+    </parameters>
+  </node>
+  <node id="CreateStack">
+    <operator>CreateStack</operator>
+    <sources>
+      <sourceProduct refid="Read"/>
+      <sourceProduct.1 refid="Read(2)"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <masterBands/>
+      <sourceBands/>
+      <resamplingType>NONE</resamplingType>
+      <extent>Master</extent>
+      <initialOffsetMethod>Product Geolocation</initialOffsetMethod>
+    </parameters>
+  </node>
+  <node id="BandMaths(3)">
+    <operator>BandMaths</operator>
+    <sources>
+      <sourceProduct.2 refid="AddElevation"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <targetBands>
+        <targetBand>
+          <name>VHdiff</name>
+          <type>float32</type>
+          <expression>10 * log10(Sigma0_VH_slv1_09Jun2023) - 10 * log10(Sigma0_VH_mst_06Jun2023)</expression>
+          <description>VH Difference</description>
+          <unit>dB</unit>
+          <noDataValue>NaN</noDataValue>
+        </targetBand>
+        <targetBand>
+          <name>VVdiff</name>
+          <type>float32</type>
+          <expression>10 * log10(Sigma0_VV_slv2_09Jun2023) - 10 * log10(Sigma0_VV_mst_06Jun2023)</expression>
+          <description>VV Difference</description>
+          <unit>dB</unit>
+          <noDataValue>NaN</noDataValue>
+        </targetBand>
+        <targetBand>
+          <name>Flood</name>
+          <type>float32</type>
+          <expression>if (Sigma0_VH_slv1_09Jun2023 > 0 AND Sigma0_VH_mst_06Jun2023 > 0 AND elevation &lt; 30 AND ((10 * log10(Sigma0_VH_slv1_09Jun2023) - 10 * log10(Sigma0_VH_mst_06Jun2023)) &lt; -3 OR ((10 * log10(Sigma0_VH_slv1_09Jun2023) - 10 * log10(Sigma0_VH_mst_06Jun2023)) &lt; -2 AND (10 * log10(Sigma0_VV_slv2_09Jun2023) - 10 * log10(Sigma0_VV_mst_06Jun2023)) &lt; -3))) then 2 else NaN</expression>
+          <description>Flood Mask</description>
+          <unit/>
+          <noDataValue>NaN</noDataValue>
+        </targetBand>
+      </targetBands>
+      <variables/>
+    </parameters>
+  </node>
+  <node id="Write">
+    <operator>Write</operator>
+    <sources>
+      <sourceProduct refid="BandMaths(3)"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <file>${output}</file>
+      <formatName>BEAM-DIMAP</formatName>
+    </parameters>
+  </node>
+  <applicationData id="Presentation">
+    <Description/>
+    <node id="Read">
+            <displayPosition x="167.0" y="181.0"/>
+    </node>
+    <node id="Read(2)">
+      <displayPosition x="46.0" y="255.0"/>
+    </node>
+    <node id="AddElevation">
+      <displayPosition x="290.0" y="254.0"/>
+    </node>
+    <node id="CreateStack">
+      <displayPosition x="161.0" y="255.0"/>
+    </node>
+    <node id="BandMaths(3)">
+      <displayPosition x="444.0" y="254.0"/>
+    </node>
+    <node id="Write">
+            <displayPosition x="618.0" y="256.0"/>
+    </node>
+  </applicationData>
+</graph>

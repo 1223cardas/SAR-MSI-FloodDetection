@@ -1,6 +1,6 @@
 import numpy as np
 
-from config import EPS, NDWI_THRESHOLD, NODATA_VALUE, SCALE_FACTOR
+from .config import EPS, NDWI_THRESHOLD, NODATA_VALUE, SCALE_FACTOR
 
 
 def compute_ndwi(green_band, nir_band):

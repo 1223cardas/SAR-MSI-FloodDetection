@@ -1,9 +1,9 @@
 import argparse
 import os
 
-from discovery import auto_find_band_paths
-from pipeline import run_pipeline
-from preview import preview_outputs_only
+from .discovery import auto_find_band_paths
+from .pipeline import run_pipeline
+from .preview import preview_outputs_only
 
 
 def build_parser():

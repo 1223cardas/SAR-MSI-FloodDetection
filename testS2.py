@@ -1,5 +1,4 @@
-from cli import main
-
+from S2.cli import main
 
 if __name__ == "__main__":
     main()

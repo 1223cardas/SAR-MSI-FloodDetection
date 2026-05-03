@@ -4,4 +4,5 @@ ndwi_work
 Imagens
 .venv
 __pycache__
+cache
 data
