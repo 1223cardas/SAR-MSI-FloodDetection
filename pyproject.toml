@@ -10,11 +10,12 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-    { name = "Your Name", email = "your.email@example.com" },
+    { name = "Diogo Cardoso", email = "diogo.m.cardoso1812@gmail.com" },
+    { name = "Paulo Magalhães", email = "Colocar depois"}
 ]
 dependencies = [
     "python-dotenv==1.2.2",
-    "rasterio==1.5.0",
+    "rasterio==1.4.4",
     "numpy==2.4.4",
 ]
 
