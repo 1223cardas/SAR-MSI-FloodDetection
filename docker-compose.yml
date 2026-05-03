@@ -1,0 +1,20 @@
+version: '3.9'
+
+services:
+  sar-msi:
+    build: .
+    container_name: sar-msi-flood-detection
+    volumes:
+      # Map local data directories to container
+      - ./S1/data:/app/S1/data
+      - ./S1/out:/app/S1/out
+      - ./S1/workflows:/app/S1/workflows
+      - ./Imagens:/app/Imagens
+      - ./ndwi_work:/app/ndwi_work
+    environment:
+      - SNAP_DIRECTORY=/opt/snap
+    stdin_open: true
+    tty: true
+    # Uncomment to run a specific command on startup:
+    # command: ["sar-msi", "--use-s2", "--run", "--preview"]
+    # Default: shows help
