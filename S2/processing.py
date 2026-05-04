@@ -2,6 +2,11 @@ import numpy as np
 
 from .config import EPS, NDWI_THRESHOLD, NODATA_VALUE, SCALE_FACTOR
 
+try:
+    from skimage.filters import threshold_otsu
+except Exception:
+    threshold_otsu = None
+
 
 def compute_ndwi(green_band, nir_band):
     green = green_band / SCALE_FACTOR
@@ -22,28 +27,31 @@ def compute_optimal_threshold(ndwi_before, ndwi_after, default_threshold=NDWI_TH
         return default_threshold
 
     valid = np.clip(valid, -1.0, 1.0)
-    hist, bin_edges = np.histogram(valid, bins=256, range=(-1.0, 1.0))
-    if hist.sum() == 0:
-        return default_threshold
+    if threshold_otsu is None:
+        hist, bin_edges = np.histogram(valid, bins=256, range=(-1.0, 1.0))
+        if hist.sum() == 0:
+            return default_threshold
 
-    probabilities = hist.astype("float64") / hist.sum()
-    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
+        probabilities = hist.astype("float64") / hist.sum()
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
 
-    cumulative_prob = np.cumsum(probabilities)
-    cumulative_mean = np.cumsum(probabilities * bin_centers)
-    total_mean = cumulative_mean[-1]
+        cumulative_prob = np.cumsum(probabilities)
+        cumulative_mean = np.cumsum(probabilities * bin_centers)
+        total_mean = cumulative_mean[-1]
 
-    between_var = (total_mean * cumulative_prob - cumulative_mean) ** 2
-    denominator = cumulative_prob * (1.0 - cumulative_prob)
-    between_var = np.divide(
-        between_var,
-        denominator,
-        out=np.zeros_like(between_var),
-        where=denominator > 0,
-    )
+        between_var = (total_mean * cumulative_prob - cumulative_mean) ** 2
+        denominator = cumulative_prob * (1.0 - cumulative_prob)
+        between_var = np.divide(
+            between_var,
+            denominator,
+            out=np.zeros_like(between_var),
+            where=denominator > 0,
+        )
 
-    best_idx = int(np.argmax(between_var))
-    return float(bin_centers[best_idx])
+        best_idx = int(np.argmax(between_var))
+        return float(bin_centers[best_idx])
+
+    return float(threshold_otsu(valid))
 
 
 def water_mask(ndwi, threshold=NDWI_THRESHOLD):
