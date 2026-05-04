@@ -1,13 +1,9 @@
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 
-import numpy as np
-import rasterio
 from dotenv import load_dotenv
-from rasterio.warp import Resampling, reproject
 
 from processors import S1Processor, S2Processor
 
@@ -35,37 +31,6 @@ def ensure_s1_tif(paths, gptExec):
     return tifs[0]
 
 
-def combine_masks(s1_path, s2_path, out_path, method="or"):
-    with rasterio.open(s1_path) as s1src, rasterio.open(s2_path) as s2src:
-        s1_mask = s1src.read(1).astype("uint8")
-
-        dest = np.zeros((s1src.height, s1src.width), dtype="float32")
-        reproject(
-            source=s2src.read(1),
-            destination=dest,
-            src_transform=s2src.transform,
-            src_crs=s2src.crs,
-            dst_transform=s1src.transform,
-            dst_crs=s1src.crs,
-            resampling=Resampling.nearest,
-        )
-
-        s2_aligned = (dest > 0.5).astype("uint8")
-
-        if method == "or":
-            combined = ((s1_mask == 1) | (s2_aligned == 1)).astype("uint8")
-        else:
-            combined = ((s1_mask == 1) & (s2_aligned == 1)).astype("uint8")
-
-        profile = s1src.profile.copy()
-        profile.update(driver="GTiff", dtype="uint8", count=1, compress="lzw", nodata=0)
-
-        with rasterio.open(out_path, "w", **profile) as dst:
-            dst.write(combined, 1)
-
-    logger.info("Combined mask written to: %s", os.path.abspath(out_path))
-
-
 def build_parser():
     p = argparse.ArgumentParser(description="SAR-MSI Unified Flood Detection Tool")
     p.add_argument("--use-s1", action="store_true", help="Run Sentinel-1 pipeline")
@@ -76,9 +41,6 @@ def build_parser():
     p.add_argument("--s2-out", default="ndwi_work", help="S2 workspace folder")
     p.add_argument("--preview", action="store_true", help="S2 preview mode")
     p.add_argument("--threshold", type=float, default=None, help="S2 threshold override")
-    p.add_argument("--combine", action="store_true", help="Combine S1 and S2 flood masks after processing")
-    p.add_argument("--combine-method", choices=["or", "and"], default="or", help="Combine method for masks")
-    p.add_argument("--combined-out", default="combined_flood.tif", help="Output path for combined mask")
     return p
 
 
@@ -90,6 +52,11 @@ def main():
         logger.error("Choose at least one source: --use-s1 and/or --use-s2")
         parser.print_help()
         sys.exit(1)
+
+    if not (args.run or args.view or args.preview):
+        logger.warning("No action specified. Use one of: --run, --view, or --preview")
+        logger.info("Example: python3 main.py --use-s2 --run --view")
+        sys.exit(0)
 
     s1_tif = None
     s2_tif = None
@@ -104,7 +71,7 @@ def main():
 
         if args.run or args.view:
             try:
-                result = s1_processor.run(run_processing=args.run, view=args.view or args.combine)
+                result = s1_processor.run(run_processing=args.run, view=args.view)
                 s1_tif = result.output_path
                 if s1_tif is not None:
                     logger.info("S1 flood TIF: %s", s1_tif)
@@ -127,20 +94,13 @@ def main():
 
         if args.run or args.view:
             try:
-                result = s2_processor.run(run_processing=args.run, view=args.view or args.combine)
+                result = s2_processor.run(run_processing=args.run, view=args.view)
                 s2_tif = result.output_path
                 if s2_tif is not None:
                     logger.info("S2 flood TIF: %s", s2_tif)
             except Exception:
                 logger.exception("S2 processing error")
                 sys.exit(4)
-
-    if args.combine:
-        if s1_tif is None or s2_tif is None:
-            logger.error("Both S1 and S2 masks are required to combine. Aborting.")
-            sys.exit(1)
-
-        combine_masks(str(s1_tif), str(s2_tif), args.combined_out, method=args.combine_method)
 
 
 if __name__ == "__main__":

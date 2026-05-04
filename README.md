@@ -5,7 +5,7 @@ Projeto para detecção de inundação usando produtos Sentinel-1 (SAR) e Sentin
 ## Visão geral
 - `S1/` — pipelines e workflows SNAP (GPT) para pré-processamento e máscara de inundação (gera `.dim` e `floodImage*.tif`).
 - `S2/` — pipeline NDWI baseado em `rasterio` que gera `flood.tif` em uma workspace (padrão `ndwi_work`).
-- `main.py` — CLI unificada para executar S1, S2 e combinar máscaras.
+- `main.py` — CLI unificada para executar S1 e S2.
 - `processors.py` — interfaces `Processor` para modularidade e testabilidade.
 
 ## Instalação Rápida
@@ -26,7 +26,6 @@ Depois você pode usar o comando `sar-msi` diretamente (se instalou entry-point)
 ```bash
 sar-msi --use-s1 --run --view
 sar-msi --use-s2 --preview
-sar-msi --use-s1 --use-s2 --combine
 ```
 
 ### Opção 2: Docker (Sem instalar SNAP localmente)
@@ -65,7 +64,6 @@ After this, you can run the tool directly from anywhere:
 # If you installed the package entry-point (optional)
 sar-msi --use-s1 --run
 sar-msi --use-s2 --preview
-sar-msi --use-s1 --use-s2 --combine
 ```
 
 ### 2. SNAP Installation (Required for Sentinel-1)
