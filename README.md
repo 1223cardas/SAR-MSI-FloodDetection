@@ -28,16 +28,6 @@ sar-msi --use-s1 --run --view
 sar-msi --use-s2 --preview
 ```
 
-### Opção 2: Docker (Sem instalar SNAP localmente)
-```bash
-# Build e run com Docker Compose
-docker-compose up -d sar-msi
-
-# Ou manualmente
-docker build -t sar-msi:latest .
-docker run -it -v $(pwd):/app sar-msi --use-s2 --run
-```
-
 ---
 
 # Installation & Setup Guide
@@ -103,28 +93,6 @@ SNAP_DIRECTORY=/path/to/snap
 brew install snap
 ```
 
-## Docker Alternative (No SNAP Install)
-
-If you want to use SNAP without installing it locally, use Docker with the official ESA SNAP image:
-
-### 1. Pull SNAP Docker Image
-```bash
-docker pull sentineldatahub/esa-snap:latest
-```
-
-### 2. Run with Docker
-```bash
-# Map your local data directories
-docker run -it \
-  -v /local/data:/data \
-  -v /local/Imagens:/Imagens \
-  sentineldatahub/esa-snap:latest
-
-# Inside container
-pip install python-dotenv rasterio numpy pytest
-python main.py --use-s1 --run
-```
-
 ## Verify Installation
 
 ### Check Python Environment
@@ -160,12 +128,6 @@ python -m pytest -v
 
 **Issue**: `No B03/B08 10m pairs found`
 - **Solution**: Place Sentinel-2 `.SAFE` folders in `Imagens/` directory
-
-**Issue**: Python imports fail in Docker
-- **Solution**: Make sure you're inside the container and install Python dependencies:
-  ```bash
-  docker exec -it <container> pip install -r requirements.txt
-  ```
 
 ## Development Workflow
 

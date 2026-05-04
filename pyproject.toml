@@ -11,13 +11,16 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
     { name = "Diogo Cardoso", email = "diogo.m.cardoso1812@gmail.com" },
-    { name = "Paulo Magalhães", email = "Colocar depois"}
+    { name = "Paulo Magalhães" }
 ]
 dependencies = [
     "python-dotenv==1.2.2",
     "rasterio==1.4.4",
     "numpy==2.4.4",
 ]
+
+[project.scripts]
+sar-msi = "main:main"
 
 [project.optional-dependencies]
 dev = [
@@ -26,6 +29,9 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[tool.setuptools]
+py-modules = ["main", "processors"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
