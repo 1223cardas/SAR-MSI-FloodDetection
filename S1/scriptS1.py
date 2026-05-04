@@ -146,6 +146,8 @@ def calculateAndDisplayResults(gptExec, paths) -> Path:
 				arr8 = ((arr - mn) / (mx - mn) * 255.0).astype('uint8')
 
 			profile = src.profile.copy()
+			for key in ("blockxsize", "blockysize", "tiled", "interleave"):
+				profile.pop(key, None)
 			profile.update(driver='PNG', dtype=rasterio.uint8, count=1, height=out_h, width=out_w)
 			preview_path.parent.mkdir(parents=True, exist_ok=True)
 			with rasterio.open(preview_path, 'w', **profile) as dst:

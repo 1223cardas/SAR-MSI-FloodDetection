@@ -5,6 +5,7 @@ from pathlib import Path
 from S1 import scriptS1, utilS1
 from S2 import discovery as s2_discovery
 from S2 import pipeline as s2_pipeline
+from S2 import preview as s2_preview
 
 
 @dataclass
@@ -64,5 +65,16 @@ class S2Processor(Processor):
             if not candidate.exists():
                 raise FileNotFoundError(f"S2 flood.tif not found in {self.out_dir}")
             output_path = candidate
+
+        if self.preview and not run_processing:
+            try:
+                s2_preview.preview_outputs_only(self.out_dir, threshold=self.threshold)
+                preview_candidate = Path(self.out_dir) / "preview.png"
+                if preview_candidate.exists():
+                    output_path = preview_candidate
+            except FileNotFoundError:
+                raise
+            except Exception as e:
+                print("S2 preview failed:", e)
 
         return ProcessorResult(name="s2", output_path=output_path)

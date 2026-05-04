@@ -1,5 +1,4 @@
 __all__ = [
-	"cli",
 	"config",
 	"discovery",
 	"pipeline",
