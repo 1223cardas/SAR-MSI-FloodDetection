@@ -1,9 +1,11 @@
-from dotenv import load_dotenv
-import rasterio, rasterio.plot
 from .utilS1 import *
 import numpy as np
 import subprocess
 import sys, math
+import rasterio
+from rasterio.enums import Resampling
+from pathlib import Path
+import os
 
 
 
@@ -15,7 +17,7 @@ def processProducts(gptExec, paths):
 	roi = getShapeFile(paths["roi"])
 	cachedProducts = []
 
-	print("Starting pre processing of products...")
+	print("Starting pre processing products...")
 	for product in products:
 		print(f"Processing product:{product.name}")
 		product_file = getProductFile(product.path)
@@ -63,7 +65,7 @@ def processProducts(gptExec, paths):
 
 
 
-def calculateAndDisplayResults(gptExec, paths):
+def calculateAndDisplayResults(gptExec, paths) -> Path:
 	visualize = paths["workflows"] / "calculateArea.xml"
 	tifs = list(paths["out"].glob("floodImage*.tif"))
 
@@ -84,10 +86,10 @@ def calculateAndDisplayResults(gptExec, paths):
 		])
 
 		try:
-			subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
+			subprocess.run(cmd, check=True)
 		except subprocess.CalledProcessError as e:
-			print(f"Error running visualization workflow: \n{e.stderr}")
-			return
+			raise RuntimeError(f"Error running visualization workflow: \n{e.stderr}")
+		
 	elif len(tifs) > 1:
 		tif_path = choose_from_list(
 			tifs, select_count=1,
@@ -101,8 +103,10 @@ def calculateAndDisplayResults(gptExec, paths):
 	# --- Calculate Flooded Area ---
 	band = data.read(1, masked=True)
 
-	# Count the pixels with a value of 1 (the flood indicator we set in our xml expression)
+	# Count the pixels with a value of 1 (indicating flood)
 	flood_count = int(np.count_nonzero(band == 1))
+	EARTH_RADIUS_M = 6378137.0
+
 	# Calculate Area in square meters (approximate for Geographic CRS, exact if Projected)
 	if data.crs and data.crs.is_geographic:
 		bounds = data.bounds
@@ -110,8 +114,8 @@ def calculateAndDisplayResults(gptExec, paths):
 		lat_rad = math.radians(center_lat)
 
 		# Approx. Earth radius in meters
-		meters_per_deg_lat = (math.pi / 180.0) * 6378137.0
-		meters_per_deg_lon = (math.pi / 180.0) * 6378137.0 * math.cos(lat_rad)
+		meters_per_deg_lat = (math.pi / 180.0) * EARTH_RADIUS_M
+		meters_per_deg_lon = (math.pi / 180.0) * EARTH_RADIUS_M * math.cos(lat_rad)
 
 		px_area_m2 = abs((data.transform.a * meters_per_deg_lon) * (data.transform.e * meters_per_deg_lat))
 	else:
@@ -123,31 +127,42 @@ def calculateAndDisplayResults(gptExec, paths):
 	print(f"Estimated Pixel Size: ~{px_area_m2:,.2f} m²")
 	print(f"Total Flooded Area: {total_area_m2:,.2f} m² ({total_area_m2 / 1000000.0:,.3f} km²)\n")
 
-	rasterio.plot.show(data, title="Flood Mask", cmap='Blues')
+	# Save a downsampled PNG for faster viewing instead of plotting the full TIFF
+	preview_path = Path(paths["out"]) / f"{Path(tif_path).stem}_preview.png"
+	max_dim = 8192
+	try:
+		with rasterio.open(tif_path) as src:
+			height = src.height
+			width = src.width
+			scale = min(1.0, max_dim / max(height, width))
+			out_h = max(1, int(height * scale))
+			out_w = max(1, int(width * scale))
+			arr = src.read(1, out_shape=(out_h, out_w), resampling=Resampling.bilinear)
+			mn = np.nanmin(arr)
+			mx = np.nanmax(arr)
+			if mx <= mn:
+				arr8 = np.zeros_like(arr, dtype='uint8')
+			else:
+				arr8 = ((arr - mn) / (mx - mn) * 255.0).astype('uint8')
 
-	return
+			profile = src.profile.copy()
+			profile.update(driver='PNG', dtype=rasterio.uint8, count=1, height=out_h, width=out_w)
+			preview_path.parent.mkdir(parents=True, exist_ok=True)
+			with rasterio.open(preview_path, 'w', **profile) as dst:
+				dst.write(arr8[np.newaxis, :, :])
+
+		print(f"Preview image saved to {preview_path}")
+		try:
+			os.startfile(str(preview_path))
+		except Exception:
+			pass
+	except Exception as e:
+		print(f"Failed to create preview image: {e}")
+
+	return tif_path
 
 
 
 def main():
 	# Suppress stack traces for cleaner error messages
 	sys.tracebacklimit = 0
-
-	# Load environment variables from .env file
-	load_dotenv()
-
-	args = parse_args(sys.argv[1:])
-	paths = check_directories()
-	gpt = getExecutable()
-
-	gptExec = [
-		str(gpt),
-		"-x",
-		"-J-Xms256m",
-		"-J-Xmx4G",
-	]
-
-	if args.run:
-		processProducts(gptExec, paths)
-	elif args.view:
-		calculateAndDisplayResults(gptExec, paths)

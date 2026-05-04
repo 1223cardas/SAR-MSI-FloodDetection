@@ -12,21 +12,22 @@ class Product:
 	path: Path
 	date: datetime
 
-
 def check_directories() -> dict[str, Path]:
+	""" Check and create necessary directories, and return a dictionary of the paths """
+	print("Checking directories...", end=" ")
 	BASE_PATH = Path(__file__).parent.resolve()
 
 	OUT_DIR = 		BASE_PATH / "out"
 	DATA_DIR = 		BASE_PATH / "data"
 	CACHE_DIR = 	BASE_PATH / "cache"
-
-	if CACHE_DIR.exists():
-		print(f"Warning: Cache directory {CACHE_DIR} already exists. Removing existing cache to avoid conflicts.")
-		shutil.rmtree(CACHE_DIR)
-
 	PRODUCT_DIR = 	DATA_DIR / "products"
 	ROI_DIR = 		DATA_DIR / "region_of_interest"
 	WORKFLOW_DIR = 	BASE_PATH / "workflows"
+
+
+	if CACHE_DIR.exists() and any(CACHE_DIR.iterdir()):
+		print(f"|	Clearing cache to avoid conflicts...")
+		shutil.rmtree(CACHE_DIR)
 
 	paths = {
 		"base": BASE_PATH,
@@ -35,22 +36,23 @@ def check_directories() -> dict[str, Path]:
 		"cache": CACHE_DIR,
 		"products": PRODUCT_DIR,
 		"roi": ROI_DIR,
-		"workflows": WORKFLOW_DIR,
+		"workflows": WORKFLOW_DIR
 	}
 
 	for d in paths.values():
 		if not d.exists():
-			print(f"{d} doesn't exist. Creating directory...")
+			print(f"|	{d} doesn't exist. Creating directory...")
 			d.mkdir(parents=True, exist_ok=True)
 
+	print("Done.")
 	return paths
 
 
 
 def choose_from_list(items: list[Path], select_count: int = 1, prompt: str | None = None) -> list[Path]:
-	"""Prompt the user to select one or more items from a list of Path objects.
-
-	Returns a list of the selected Path objects (length == select_count).
+	"""
+		Prompt the user to select one or more items from a list of Path objects.\n
+		Returns a list of the selected Path objects (length == select_count).
 	"""
 	if not items:
 		raise ValueError("No items available to select from.")
@@ -99,7 +101,7 @@ def getExecutable() -> Path:
 		gpt_exec = candidate / "bin" / "gpt.exe"
 
 		if gpt_exec.exists():
-			print(f"Found gpt.exe at: {gpt_exec}")
+			print(f"|	Found gpt.exe at: {gpt_exec}")
 			return gpt_exec
 		
 		raise FileNotFoundError(
@@ -135,7 +137,8 @@ def getProducts(data: Path) -> list[Product]:
 			valid_candidates.append(candidate)
 		else:
 			print(
-				f"Invalid product found in data/: {candidate.name}.\n"
+				f"|	Invalid product found in data/: {candidate.name}.\n"
+				"|	Only .SAFE directories or .zip files are accepted. This entry will be ignored." 
 			)
 
 
@@ -159,7 +162,6 @@ def getProducts(data: Path) -> list[Product]:
 	products: list[Product] = []
 	for candidate in selected_candidates:
 		acquisition_date = getDate(candidate)
-
 		products.append(Product(name=candidate.name, path=candidate, date=acquisition_date))
 
 	products.sort(key=lambda p: p.date)
@@ -173,7 +175,7 @@ def getDate(product: Path) -> datetime:
 		raise ValueError(f"Could not parse acquisition time from: {product.name}")
 	
 	result = datetime.strptime(match.group(1), "%Y%m%dT%H%M%S")
-	print(f"Extracted acquisition time: {result} from {product.name}")
+	print(f"|	Extracted acquisition time: {result} from {product.name}")
 	return result
 
 
@@ -215,7 +217,6 @@ def build_file(dir: Path, base_name: str) -> Path:
 	filesInDir = glob.glob(str(f"{path}*.*"))
 
 	if not filesInDir:
-		print(f"Using unique name: {path}")
 		return path
 	
 	if "cache" in str(dir):
@@ -252,21 +253,3 @@ def build_file(dir: Path, base_name: str) -> Path:
 	new_path = dir / f"{base_name}_{next_index:03d}"
 	print(f"Warning: files matching '{base_name}' already exist. Using index {next_index:03d} to avoid overwriting.")
 	return new_path
-
-def parse_args(args):
-	import argparse
-	import sys
-
-	parser = argparse.ArgumentParser(description="Process Sentinel-1 products to create flood masks.")
-
-	# Create a mutually exclusive group so only one action can be selected
-	group = parser.add_mutually_exclusive_group(required=True)
-	group.add_argument("-r", "--run", action="store_true", help="Run the entire Sentinel-1 processing cycle.")
-	group.add_argument("-v", "--view", action="store_true", help="Visualize existing .tif results and display flood calculations.")
-
-	# Show help if no arguments are passed
-	if not args:
-		parser.print_help()
-		sys.exit(1)
-
-	return parser.parse_args(args)

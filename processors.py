@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,9 +21,11 @@ class Processor(ABC):
 
 class S1Processor(Processor):
     def __init__(self) -> None:
+        print("================================================================================================")
         self.paths = utilS1.check_directories()
         self.gpt = utilS1.getExecutable()
         self.gpt_exec = [str(self.gpt), "-x", "-J-Xms256m", "-J-Xmx4G"]
+        print("================================================================================================")
 
     def run(self, run_processing: bool, view: bool) -> ProcessorResult:
         if run_processing:
@@ -33,21 +33,9 @@ class S1Processor(Processor):
 
         output_path = None
         if view:
-            output_path = self._ensure_visualization()
+            output_path = scriptS1.calculateAndDisplayResults(self.gpt_exec, self.paths)
 
         return ProcessorResult(name="s1", output_path=output_path)
-
-    def _ensure_visualization(self) -> Path:
-        out_dir = Path(self.paths["out"])
-        tifs = list(out_dir.glob("floodImage*.tif"))
-        if tifs:
-            return tifs[0]
-
-        scriptS1.calculateAndDisplayResults(self.gpt_exec, self.paths)
-        tifs = list(out_dir.glob("floodImage*.tif"))
-        if not tifs:
-            raise FileNotFoundError("Failed to produce S1 flood TIF in S1/out/")
-        return tifs[0]
 
 
 class S2Processor(Processor):

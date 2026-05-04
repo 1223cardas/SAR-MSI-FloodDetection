@@ -14,23 +14,6 @@ logger = logging.getLogger("sar_msi")
 load_dotenv()
 
 
-def ensure_s1_tif(paths, gptExec):
-    out_dir = Path(paths["out"])
-    tifs = list(out_dir.glob("floodImage*.tif"))
-    if tifs:
-        return tifs[0]
-
-    # If no tif exists, try to generate via the visualization workflow
-    logger.info("No S1 flood TIF found, generating visualization via SNAP workflows...")
-    from S1 import scriptS1
-
-    scriptS1.calculateAndDisplayResults(gptExec, paths)
-    tifs = list(out_dir.glob("floodImage*.tif"))
-    if not tifs:
-        raise FileNotFoundError("Failed to produce S1 flood TIF in S1/out/")
-    return tifs[0]
-
-
 def build_parser():
     p = argparse.ArgumentParser(description="SAR-MSI Unified Flood Detection Tool")
     p.add_argument("--use-s1", action="store_true", help="Run Sentinel-1 pipeline")
