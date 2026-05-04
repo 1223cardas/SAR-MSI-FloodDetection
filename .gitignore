@@ -4,6 +4,7 @@ ndwi_work
 Imagens
 .venv
 __pycache__
+.pytest_cache
 cache
 data
 sar_msi_flood_detection.egg-info
