@@ -10,19 +10,25 @@ import os
 
 
 def processProducts(gptExec, paths):
-	singleProduct = paths["workflows"] / "singleProductProcessing.xml"
-	stackProducts = paths["workflows"] / "stackProducts.xml"
+	singleProduct = getWorkflow("singleProductProcessing")
+	stackProducts = getWorkflow("stackProducts")
 
-	products = getProducts(paths["products"])
-	roi = getShapeFile(paths["roi"])
-	cachedProducts = []
+	products = getProducts()
+	roi = getShapeFile()
 
 	print("Starting pre processing products...")
 	for product in products:
-		print(f"Processing product:{product.name}")
+
+		print(f"Processing product: {product.name}")
 		product_file = getProductFile(product.path)
-		print(f"Using product file: {product_file}")
-		output_file = build_file(paths["cache"], f"zone_{product.date.strftime('%Y%m%d')}")
+
+		output_file = build_file(paths["cache"], f"zone_{product.date.strftime('%Y%m%d')}_PROCESSING")
+		
+		# Check for cached product before processing
+		cached_file = Path(str(output_file).replace("_PROCESSING", "")).with_suffix('.dim')
+		if cached_file.exists():
+			print(f"Cached product found for {product.name}, skipping processing.")
+			continue
 
 		cmd = gptExec.copy()
 		cmd.extend([
@@ -32,25 +38,35 @@ def processProducts(gptExec, paths):
 			f"-PvectorFile={str(roi)}",
 		])
 
-		try:
-			subprocess.run(cmd, check=True)
-			print(
-				f"Successfully processed product {product.name}.\n Output saved to {output_file}"
-			)
-			cachedProducts.append(output_file.with_suffix('.dim'))
-		except subprocess.CalledProcessError as e:
-			print(f"Error processing product {product}: \n{e.stderr}")
+		execute_command(
+			cmd,
+			success_message=f"Successfully processed product {product.name}.\n" \
+			f"Output saved to {output_file}",
+			error_message=f"Error processing product {product.name}:"
+		)
 
+		refactor_snap_product(str(output_file))	
+
+
+	cachedProducts = sorted(paths["cache"].glob("zone_*.dim"))
 	print("Finished processing products.")
 	print("Stacking products and creating flood mask...")
 
+	# DEPOIS
 	out = build_file(paths["out"], 'flood_zone')
-	cmd = gptExec.copy()
 
+	variables = computeWorkflowVariables(cachedProducts)
+
+	cmd = gptExec.copy()
 	cmd.extend([
 		str(stackProducts),
 		f"-Pproduct1={str(cachedProducts[0])}",
 		f"-Pproduct2={str(cachedProducts[1])}",
+		f"-Pvh_slv={variables['vh_slv']}",
+		f"-Pvh_mst={variables['vh_mst']}",
+		f"-Pvv_mst={variables['vv_mst']}",
+		f"-Pvh_diff={variables['vh_diff']}",
+		f"-Pvv_diff={variables['vv_diff']}",
 		f"-Poutput={str(out)}"
 	])
 
@@ -87,6 +103,7 @@ def calculateAndDisplayResults(gptExec, paths) -> Path:
 
 		try:
 			subprocess.run(cmd, check=True)
+			tif_path = str(image) + ".tif"
 		except subprocess.CalledProcessError as e:
 			raise RuntimeError(f"Error running visualization workflow: \n{e.stderr}")
 		

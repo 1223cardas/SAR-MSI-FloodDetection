@@ -57,31 +57,14 @@
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <targetBands>
         <targetBand>
-          <name>VHdiff</name>
-          <type>float32</type>
-          <expression>10 * log10(Sigma0_VH_slv1_09Jun2023) - 10 * log10(Sigma0_VH_mst_06Jun2023)</expression>
-          <description>VH Difference</description>
-          <unit>dB</unit>
-          <noDataValue>NaN</noDataValue>
-        </targetBand>
-        <targetBand>
-          <name>VVdiff</name>
-          <type>float32</type>
-          <expression>10 * log10(Sigma0_VV_slv2_09Jun2023) - 10 * log10(Sigma0_VV_mst_06Jun2023)</expression>
-          <description>VV Difference</description>
-          <unit>dB</unit>
-          <noDataValue>NaN</noDataValue>
-        </targetBand>
-        <targetBand>
           <name>Flood</name>
           <type>float32</type>
-          <expression>if (Sigma0_VH_slv1_09Jun2023 > 0 AND Sigma0_VH_mst_06Jun2023 > 0 AND elevation &lt; 30 AND ((10 * log10(Sigma0_VH_slv1_09Jun2023) - 10 * log10(Sigma0_VH_mst_06Jun2023)) &lt; -3 OR ((10 * log10(Sigma0_VH_slv1_09Jun2023) - 10 * log10(Sigma0_VH_mst_06Jun2023)) &lt; -2 AND (10 * log10(Sigma0_VV_slv2_09Jun2023) - 10 * log10(Sigma0_VV_mst_06Jun2023)) &lt; -3))) then 2 else NaN</expression>
+          <expression>if (${vh_slv} > 0 AND ${vh_mst} > 0 AND elevation &lt; 30 AND (${vh_diff} &lt; -3 OR (${vh_diff} &lt; -2 AND ${vv_diff} &lt; -3))) then 2 else NaN</expression>
           <description>Flood Mask</description>
           <unit/>
-          <noDataValue>NaN</noDataValue>
+          <noDataValue>0</noDataValue>
         </targetBand>
       </targetBands>
-      <variables/>
     </parameters>
   </node>
   <node id="Write">

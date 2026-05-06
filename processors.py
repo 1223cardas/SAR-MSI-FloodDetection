@@ -25,7 +25,7 @@ class S1Processor(Processor):
         print("================================================================================================")
         self.paths = utilS1.check_directories()
         self.gpt = utilS1.getExecutable()
-        self.gpt_exec = [str(self.gpt), "-x", "-J-Xms256m", "-J-Xmx4G"]
+        self.gpt_exec = utilS1.getGPTCommand(self.gpt)
         print("================================================================================================")
 
     def run(self, run_processing: bool, view: bool) -> ProcessorResult:
