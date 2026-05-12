@@ -22,19 +22,6 @@
       <maskNames/>
     </parameters>
   </node>
-  <node id="AddElevation">
-    <operator>AddElevation</operator>
-    <sources>
-      <sourceProduct refid="CreateStack"/>
-    </sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <demName>SRTM 3Sec</demName>
-      <demResamplingMethod>BILINEAR_INTERPOLATION</demResamplingMethod>
-      <externalDEMFile/>
-      <externalDEMNoDataValue>0.0</externalDEMNoDataValue>
-      <elevationBandName>elevation</elevationBandName>
-    </parameters>
-  </node>
   <node id="CreateStack">
     <operator>CreateStack</operator>
     <sources>
@@ -49,28 +36,34 @@
       <initialOffsetMethod>Product Geolocation</initialOffsetMethod>
     </parameters>
   </node>
-  <node id="BandMaths(3)">
-    <operator>BandMaths</operator>
+  <node id="AddElevation">
+    <operator>AddElevation</operator>
     <sources>
-      <sourceProduct.2 refid="AddElevation"/>
+      <sourceProduct refid="CreateStack"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <targetBands>
-        <targetBand>
-          <name>Flood</name>
-          <type>float32</type>
-          <expression>if (${vh_slv} > 0 AND ${vh_mst} > 0 AND elevation &lt; 30 AND (${vh_diff} &lt; -3 OR (${vh_diff} &lt; -2 AND ${vv_diff} &lt; -3))) then 2 else NaN</expression>
-          <description>Flood Mask</description>
-          <unit/>
-          <noDataValue>0</noDataValue>
-        </targetBand>
-      </targetBands>
+      <demName>SRTM 3Sec</demName>
+      <demResamplingMethod>BILINEAR_INTERPOLATION</demResamplingMethod>
+      <externalDEMFile/>
+      <externalDEMNoDataValue>0.0</externalDEMNoDataValue>
+      <elevationBandName>elevation</elevationBandName>
+    </parameters>
+  </node>
+  <node id="AddLandCover">
+    <operator>AddLandCover</operator>
+    <sources>
+      <sourceProduct refid="AddElevation"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <landCoverNames>ESA_WorldCover</landCoverNames>
+      <externalFiles/>
+      <resamplingMethod>NEAREST_NEIGHBOUR</resamplingMethod>
     </parameters>
   </node>
   <node id="Write">
     <operator>Write</operator>
-    <sources>
-      <sourceProduct refid="BandMaths(3)"/>
+    <sources> 
+      <sourceProduct refid="AddLandCover"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${output}</file>
@@ -80,22 +73,22 @@
   <applicationData id="Presentation">
     <Description/>
     <node id="Read">
-            <displayPosition x="167.0" y="181.0"/>
+            <displayPosition x="169.0" y="186.0"/>
     </node>
     <node id="Read(2)">
       <displayPosition x="46.0" y="255.0"/>
     </node>
-    <node id="AddElevation">
-      <displayPosition x="290.0" y="254.0"/>
-    </node>
     <node id="CreateStack">
-      <displayPosition x="161.0" y="255.0"/>
+      <displayPosition x="161.0" y="256.0"/>
     </node>
-    <node id="BandMaths(3)">
-      <displayPosition x="444.0" y="254.0"/>
+    <node id="AddElevation">
+      <displayPosition x="270.0" y="257.0"/>
+    </node>
+    <node id="AddLandCover">
+      <displayPosition x="391.0" y="258.0"/>
     </node>
     <node id="Write">
-            <displayPosition x="618.0" y="256.0"/>
+            <displayPosition x="521.0" y="258.0"/>
     </node>
   </applicationData>
 </graph>

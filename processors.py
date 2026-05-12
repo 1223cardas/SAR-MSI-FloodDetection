@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 
-from S1 import scriptS1, utilS1
+from S1 import scriptS1, check_directories, getExecutable
 from S2 import discovery as s2_discovery
 from S2 import pipeline as s2_pipeline
 from S2 import preview as s2_preview
@@ -23,18 +23,17 @@ class Processor(ABC):
 class S1Processor(Processor):
     def __init__(self) -> None:
         print("================================================================================================")
-        self.paths = utilS1.check_directories()
-        self.gpt = utilS1.getExecutable()
-        self.gpt_exec = utilS1.getGPTCommand(self.gpt)
+        self.paths = check_directories()
+        self.gpt_exec = getExecutable()
         print("================================================================================================")
 
     def run(self, run_processing: bool, view: bool) -> ProcessorResult:
         if run_processing:
-            scriptS1.processProducts(self.gpt_exec, self.paths)
+            scriptS1.processProducts(self.gpt_exec)
 
         output_path = None
         if view:
-            output_path = scriptS1.calculateAndDisplayResults(self.gpt_exec, self.paths)
+            output_path = scriptS1.calculateAndDisplayResults()
 
         return ProcessorResult(name="s1", output_path=output_path)
 

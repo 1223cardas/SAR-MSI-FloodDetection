@@ -11,10 +11,21 @@
       <maskNames/>
     </parameters>
   </node>
+  <node id="Apply-Orbit-File">
+    <operator>Apply-Orbit-File</operator>
+    <sources>
+      <sourceProduct refid="Read"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <orbitType>Sentinel Precise (Auto Download)</orbitType>
+      <polyDegree>3</polyDegree>
+      <continueOnFail>false</continueOnFail>
+    </parameters>
+  </node>
   <node id="Subset">
     <operator>Subset</operator>
     <sources>
-      <sourceProduct refid="Read"/>
+      <sourceProduct refid="Apply-Orbit-File"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <sourceBands/>
@@ -30,21 +41,10 @@
       <copyMetadata>true</copyMetadata>
     </parameters>
   </node>
-  <node id="Apply-Orbit-File">
-    <operator>Apply-Orbit-File</operator>
-    <sources>
-      <sourceProduct refid="Subset"/>
-    </sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <orbitType>Sentinel Precise (Auto Download)</orbitType>
-      <polyDegree>3</polyDegree>
-      <continueOnFail>false</continueOnFail>
-    </parameters>
-  </node>
   <node id="ThermalNoiseRemoval">
     <operator>ThermalNoiseRemoval</operator>
     <sources>
-      <sourceProduct refid="Apply-Orbit-File"/>
+      <sourceProduct refid="Subset"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <selectedPolarisations/>

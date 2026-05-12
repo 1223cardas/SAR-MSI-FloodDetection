@@ -4,38 +4,31 @@
     <operator>Read</operator>
     <sources/>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <useAdvancedOptions>true</useAdvancedOptions>
+      <useAdvancedOptions>false</useAdvancedOptions>
       <file>${product}</file>
       <copyMetadata>true</copyMetadata>
       <bandNames/>
       <maskNames/>
     </parameters>
   </node>
-  <node id="AddLandCover">
-    <operator>AddLandCover</operator>
-    <sources>
-      <sourceProduct refid="Read"/>
-    </sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <landCoverNames>ESA_WorldCover</landCoverNames>
-      <externalFiles/>
-      <resamplingMethod>NEAREST_NEIGHBOUR</resamplingMethod>
-    </parameters>
-  </node>
   <node id="BandMaths">
     <operator>BandMaths</operator>
     <sources>
-      <sourceProduct refid="AddLandCover"/>
+      <sourceProduct.2 refid="Read"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <targetBands>
         <targetBand>
-          <name>FloodedArea</name>
+          <name>Flood</name>
           <type>float32</type>
-          <expression>if (land_cover_ESA_WorldCover != 80 AND Flood &gt; 0) then 1 else NaN</expression>
-          <description/>
+          <expression>
+            if land_cover_ESA_WorldCover != 80 AND (${vh_slv} &gt; 0 AND ${vh_mst} &gt; 0) AND elevation &lt; ${elev_threshold}
+                AND (${vh_diff} &lt; -3 OR (${vh_diff} &lt; -2 AND ${vv_diff} &lt; -3))
+            then 1 else NaN
+          </expression>
+          <description>Flood Mask</description>
           <unit/>
-          <noDataValue>0.0</noDataValue>
+          <noDataValue>0</noDataValue>
         </targetBand>
       </targetBands>
       <variables/>
@@ -48,22 +41,19 @@
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${output}</file>
-      <formatName>GeoTIFF</formatName>
+      <formatName>BEAM-DIMAP</formatName>
     </parameters>
   </node>
   <applicationData id="Presentation">
     <Description/>
     <node id="Read">
-            <displayPosition x="51.0" y="153.0"/>
-    </node>
-    <node id="AddLandCover">
-      <displayPosition x="156.0" y="151.0"/>
+      <displayPosition x="77.0" y="154.0"/>
     </node>
     <node id="BandMaths">
-      <displayPosition x="309.0" y="151.0"/>
+      <displayPosition x="305.0" y="155.0"/>
     </node>
     <node id="Write">
-            <displayPosition x="453.0" y="151.0"/>
+      <displayPosition x="450.0" y="153.0"/>
     </node>
   </applicationData>
 </graph>

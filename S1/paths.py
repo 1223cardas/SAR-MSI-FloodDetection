@@ -1,0 +1,82 @@
+from pathlib import Path
+import glob
+import os
+import shutil
+
+
+# define the paths variable to be used across modules
+paths: dict[str, Path] = {}
+
+
+def check_directories() -> dict[str, Path]:
+    """Check and create necessary directories, and return a dictionary of the paths."""
+    print("Checking directories...", end=" ")
+    base_path = Path(__file__).parent.resolve()
+
+    out_dir = base_path / "out"
+    data_dir = base_path / "data"
+    cache_dir = base_path / "cache"
+    product_dir = data_dir / "products"
+    roi_dir = data_dir / "region_of_interest"
+    workflow_dir = base_path / "workflows"
+
+    global paths
+    paths.update(
+        {
+            "base": base_path,
+            "out": out_dir,
+            "data": data_dir,
+            "cache": cache_dir,
+            "products": product_dir,
+            "roi": roi_dir,
+            "workflows": workflow_dir,
+        }
+    )
+
+    # Clean cache directory
+    if paths["cache"].exists():
+        for f in glob.glob(str(paths["cache"] / "*_PROCESSING.*")):
+            try:
+                if os.path.isfile(f):
+                    os.remove(f)
+                elif os.path.isdir(f):
+                    shutil.rmtree(f)
+            except Exception as e:
+                print(f"|\tWarning: Could not delete {f}. Reason: {e}")
+
+    for d in paths.values():
+        if not d.exists():
+            print(f"\n|\t{d} doesn't exist. Creating directory...", end="")
+            d.mkdir(parents=True, exist_ok=True)
+
+    print("\nDone.")
+    return paths
+
+
+def build_file(dir_path: Path, base_name: str) -> Path:
+    """Build a file path in the specified directory with the given base name."""
+    path = dir_path / base_name
+    files_in_dir = list(path.parent.glob(f"{base_name}*"))
+
+    if not files_in_dir:
+        return path
+
+    if "cache" in str(dir_path):
+        # Check for unfinished files
+        processing = list(path.parent.glob(f"{base_name}_PROCESSING*"))
+        if processing:
+            for p in processing:
+                if p.is_dir():
+                    shutil.rmtree(p)
+                else:
+                    p.unlink()
+
+    return path
+
+
+def build_cache_file(base_name: str) -> Path:
+    return build_file(paths["cache"], f"{base_name}")
+
+
+def build_output_file(base_name: str) -> Path:
+    return build_file(paths["out"], f"{base_name}")
