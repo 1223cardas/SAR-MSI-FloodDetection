@@ -22,29 +22,10 @@
       <continueOnFail>false</continueOnFail>
     </parameters>
   </node>
-  <node id="Subset">
-    <operator>Subset</operator>
-    <sources>
-      <sourceProduct refid="Apply-Orbit-File"/>
-    </sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands/>
-      <tiePointGrids/>
-      <region>0,0,0,0</region>
-      <referenceBand/>
-      <geoRegion/>
-      <subSamplingX>1</subSamplingX>
-      <subSamplingY>1</subSamplingY>
-      <fullSwath>false</fullSwath>
-      <vectorFile>${vectorFile}</vectorFile>
-      <polygonRegion/>
-      <copyMetadata>true</copyMetadata>
-    </parameters>
-  </node>
   <node id="ThermalNoiseRemoval">
     <operator>ThermalNoiseRemoval</operator>
     <sources>
-      <sourceProduct refid="Subset"/>
+      <sourceProduct refid="Apply-Orbit-File"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <selectedPolarisations/>
@@ -137,10 +118,29 @@
       <externalAuxFile/>
     </parameters>
   </node>
+  <node id="Subset">
+    <operator>Subset</operator>
+    <sources>
+      <sourceProduct refid="Terrain-Correction"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <sourceBands/>
+      <tiePointGrids/>
+      <region>0,0,0,0</region>
+      <referenceBand/>
+      <geoRegion/>
+      <subSamplingX>1</subSamplingX>
+      <subSamplingY>1</subSamplingY>
+      <fullSwath>false</fullSwath>
+      <vectorFile>${vectorFile}</vectorFile>
+      <polygonRegion/>
+      <copyMetadata>true</copyMetadata>
+    </parameters>
+  </node>
   <node id="Write">
     <operator>Write</operator>
     <sources>
-      <sourceProduct refid="Terrain-Correction"/>
+      <sourceProduct refid="Subset"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <file>${output}</file>
@@ -151,9 +151,6 @@
     <Description/>
     <node id="Read">
             <displayPosition x="50.0" y="15.0"/>
-    </node>
-    <node id="Subset">
-      <displayPosition x="149.0" y="16.0"/>
     </node>
     <node id="Apply-Orbit-File">
       <displayPosition x="251.0" y="17.0"/>
@@ -169,6 +166,9 @@
     </node>
     <node id="Terrain-Correction">
       <displayPosition x="73.0" y="67.0"/>
+    </node>
+    <node id="Subset">
+      <displayPosition x="157.0" y="110.0"/>
     </node>
     <node id="Write">
       <displayPosition x="99.0" y="135.0"/>

@@ -61,22 +61,12 @@ def build_file(dir_path: Path, base_name: str) -> Path:
     if not files_in_dir:
         return path
 
-    if "cache" in str(dir_path):
-        # Check for unfinished files
-        processing = list(path.parent.glob(f"{base_name}_PROCESSING*"))
-        if processing:
-            for p in processing:
-                if p.is_dir():
-                    shutil.rmtree(p)
-                else:
-                    p.unlink()
-
     return path
 
 
 def build_cache_file(base_name: str) -> Path:
-    return build_file(paths["cache"], f"{base_name}")
+    return build_file(paths["cache"], base_name)
 
 
 def build_output_file(base_name: str) -> Path:
-    return build_file(paths["out"], f"{base_name}")
+    return build_file(paths["out"], base_name)

@@ -7,48 +7,48 @@ from .paths import paths
 
 
 def getProducts() -> list[Product]:
-	print("Discovering products...")
-	entries = list(paths["products"].iterdir())
+    print("Discovering products...")
+    entries = list(paths["products"].iterdir())
 
-	if not entries:
-		raise FileNotFoundError(
-			"No products found in data/.\n"
-			"Please add at least two Sentinel-1 products (.SAFE or .zip) to the data/products/ directory."
-		)
+    if not entries:
+        raise FileNotFoundError(
+            "No products found in data/.\n"
+            "Please add at least two Sentinel-1 products (.SAFE or .zip) to the data/products/ directory."
+        )
 
-	valid_candidates: list[Path] = []
+    valid_candidates: list[Path] = []
 
-	for candidate in entries:
-		is_safe = candidate.is_dir() and candidate.name.upper().endswith(".SAFE")
-		is_zip = candidate.is_file() and candidate.suffix.lower() == ".zip"
-		if is_safe or is_zip:
-			valid_candidates.append(candidate)
-		else:
-			print(
-				f"|\tInvalid product found in data/: {candidate.name}.\n"
-				"|\tOnly .SAFE directories or .zip files are accepted. This entry will be ignored."
-			)
+    for candidate in entries:
+        is_safe = candidate.is_dir() and candidate.name.upper().endswith(".SAFE")
+        is_zip = candidate.is_file() and candidate.suffix.lower() == ".zip"
+        if is_safe or is_zip:
+            valid_candidates.append(candidate)
+        else:
+            print(
+                f"|\tInvalid product found in data/: {candidate.name}.\n"
+                "|\tOnly .SAFE directories or .zip files are accepted. This entry will be ignored."
+            )
 
-	if len(valid_candidates) < 2:
-		raise FileNotFoundError(
-			"At least two Sentinel-1 products (.SAFE or .zip) "
-			"are required in data/products/ folder."
-		)
+    if len(valid_candidates) < 2:
+        raise FileNotFoundError(
+            "At least two Sentinel-1 products (.SAFE or .zip) "
+            "are required in data/products/ folder."
+        )
 
-	# If there are more than two valid products, ask the user to select two.
-	selected_candidates = choose_from_list(
-		valid_candidates,
-		select_count=2,
-		prompt="More than two valid products found. Please select two to use:",
-	)
+    # If there are more than two valid products, ask the user to select two.
+    selected_candidates = choose_from_list(
+        valid_candidates,
+        select_count=2,
+        prompt="More than two valid products found. Please select two to use:",
+    )
 
-	products: list[Product] = []
-	for candidate in selected_candidates:
-		acquisition_date = getDate(candidate)
-		products.append(Product(name=candidate.name, path=candidate, date=acquisition_date))
+    products: list[Product] = []
+    for candidate in selected_candidates:
+        acquisition_date = getDate(candidate)
+        products.append(Product(name=candidate.name, path=candidate, date=acquisition_date))
 
-	products.sort(key=lambda p: p.date)
-	return products
+    products.sort(key=lambda p: p.date)
+    return products
 
 
 def getDate(product: Path) -> datetime:
@@ -73,40 +73,25 @@ def getProductFile(product: Path) -> Path:
     return product
 
 
+
+def getFile(path: Path, parseName: str) -> Path:
+    files = sorted(path.glob(parseName))
+
+    if not files:
+        raise FileNotFoundError(f"No files matching '{parseName}' found in {path}")
+
+    return choose_from_list(
+        files, select_count=1, prompt=f"Multiple files matching '{parseName}' found. Please select one:"
+    )[0]
+
+
 def getShapeFile() -> Path:
-    # Look for .shp files in the specified directory
-    shape_files = sorted(paths["roi"].glob("**/*.shp"))
-
-    if not shape_files:
-        raise FileNotFoundError(
-            "No .shp file found in data/region_of_interest/. "
-            "Please add a shapefile to this directory."
-        )
-
-    if len(shape_files) > 1:
-        selected = choose_from_list(
-            shape_files,
-            select_count=1,
-            prompt="Multiple .shp files found in data/region_of_interest. Please select one:",
-        )
-        return selected[0]
-
-    return shape_files[0]
+    return getFile(paths["roi"], "*.shp")
 
 
 def getFloodDimFile() -> Path:
-    # Look for flood .dim files in the output directory
-    dim_files = list(paths["out"].glob("flood_*.dim"))
+    return getFile(paths["out"], "flood_*.dim")
 
-    if not dim_files:
-        raise FileNotFoundError(
-            "No flood .dim product found in output directory.\n"
-            "Run the flood mask step first."
-        )
-
-    return choose_from_list(
-        dim_files, select_count=1, prompt="Multiple flood products found. Please select one:"
-    )[0]
 
 
 def getWorkflow(name: str) -> Path:
@@ -114,6 +99,7 @@ def getWorkflow(name: str) -> Path:
     if not workflow_path.exists():
         raise FileNotFoundError(f"Workflow XML not found: {workflow_path}")
     return workflow_path
+
 
 
 def choose_from_list(items: list[Path], select_count: int, prompt: str | None = None) -> list[Path]:

@@ -3,36 +3,25 @@ import math
 import numpy as np
 import rasterio
 from rasterio.transform import array_bounds
-
+from skimage.filters import threshold_otsu
 from .models import ProductData
-from .product_utils import get_band_file, list_bands
+from .product_utils import get_band_file
 
 
-def compute_water_elevation_p95(stack_dim_path: Path, water_class: int = 80) -> float:
-    """
-    Reads elevation and ESA WorldCover land cover bands from a SNAP .dim product
-    using rasterio (no snappy required), then computes the P95 elevation of
-    water pixels.
-    """
-    available = list_bands(stack_dim_path)
-    print(f"[INFO] Available bands: {available}")
 
-    # Locate the two bands we need
-    lc_band_name = next((b for b in available if "land_cover" in b.lower()), "")
-    elev_band_name = next((b for b in available if "elevation" in b.lower()), "")
+def compute_water_elevation_p95(data_file: Path, vars: list[str], water_class: int = 80) -> float:
+    """Reads elevation and ESA WorldCover land cover bands to compute the P95 elevation of water pixels."""
+    elev_band_name, lc_band_name = vars
 
     if lc_band_name == "":
         print("[WARN] No land cover band found")
-        return 0.0  # Can't compute water elevation without land cover info
+        return 1e6
     if elev_band_name == "":
         print("[WARN] No elevation band found")
-        return 0.0  # Can't compute water elevation without elevation info
-
-    print(f"[INFO] Using land cover band: '{lc_band_name}'")
-    print(f"[INFO] Using elevation band:  '{elev_band_name}'")
-
-    elev_img = get_band_file(stack_dim_path, elev_band_name)
-    lc_img = get_band_file(stack_dim_path, lc_band_name)
+        return 1e6
+    
+    elev_img = get_band_file(data_file, elev_band_name)
+    lc_img = get_band_file(data_file, lc_band_name)
 
     with rasterio.open(elev_img) as elev_ds:
         elevation = elev_ds.read(1).astype(np.float32)
@@ -52,14 +41,93 @@ def compute_water_elevation_p95(stack_dim_path: Path, water_class: int = 80) -> 
 
     if len(water_elevations) == 0:
         print("[WARN] No water pixels found in land cover. Cannot compute elevation threshold.")
-        return 10000.0
+        return 1e6
 
     p95 = round(float(np.percentile(water_elevations, 95)) + 5.0)
-    print(
-        f"[INFO] Water elevation P95: {p95:.2f}m  "
-        f"(n={len(water_elevations):,} water pixels)"
-    )
+    print(f"|\tComputed elevation threshold (95th percentile): {p95:.2f} m")
+
     return p95
+
+
+
+def compute_log_diff(
+    slv: np.ndarray,
+    mst: np.ndarray,
+    slv_nodata: float | None,
+    mst_nodata: float | None,
+) -> np.ndarray:
+    """Computes the log-ratio difference between slave and master arrays, masking out invalid pixels."""
+
+    # Pixels must be positive and finite in both arrays for log10 to be valid.
+    # Nodata sentinels are also excluded — they are not real backscatter values.
+    valid = (slv > 0) & (mst > 0) & np.isfinite(slv) & np.isfinite(mst)
+    if slv_nodata is not None:
+        valid &= slv != slv_nodata
+    if mst_nodata is not None:
+        valid &= mst != mst_nodata
+
+    if not np.any(valid):
+        return np.empty(0, dtype=np.float32)
+    
+    diff = 10.0 * np.log10(slv[valid]) - 10.0 * np.log10(mst[valid])
+    return diff[np.isfinite(diff)].astype(np.float32)
+
+
+
+def compute_otsu_threshold(
+    data_file: Path,
+    slv_band: str,
+    mst_band: str,
+    label: str,
+    default_threshold: float = -3.0,
+) -> float:
+    """Computes an Otsu threshold on the log-ratio diff between slave and master bands."""
+    slv_img = get_band_file(data_file, slv_band)
+    mst_img = get_band_file(data_file, mst_band)
+
+     # Collect valid diff values block-by-block to avoid loading the entire raster into memory.
+    chunks: list[np.ndarray] = []
+    with rasterio.open(slv_img) as slv_ds, rasterio.open(mst_img) as mst_ds:
+        if slv_ds.shape != mst_ds.shape:
+            raise ValueError(f"{label} master/slave shapes do not match")
+
+        for _, window in slv_ds.block_windows(1):
+            slv = slv_ds.read(1, window=window).astype(np.float32)
+            mst = mst_ds.read(1, window=window).astype(np.float32)
+            diff = compute_log_diff(slv, mst, slv_ds.nodata, mst_ds.nodata)
+            if diff.size > 0:
+                chunks.append(diff)
+
+    if not chunks:
+        print(f"[WARN] No valid {label} diff samples for Otsu; using default.")
+        return default_threshold
+
+    # Otsu's method assumes a bimodal distribution to find the optimal threshold between
+    # two classes. Here those classes are flooded pixels (large negative diffs) and
+    # non-flooded pixels (near-zero or positive diffs). Too few samples means the
+    # distribution is not reliable enough for the method to work correctly.
+    all_diffs = np.concatenate(chunks)
+    if all_diffs.size < 32:
+        print(f"[WARN] Not enough valid {label} diff samples for Otsu; using default.")
+        return default_threshold
+
+    threshold = float(threshold_otsu(all_diffs))
+    if not np.isfinite(threshold):
+        print(f"[WARN] Otsu threshold invalid for {label}; using default.")
+        return default_threshold
+
+    return threshold
+
+
+def compute_otsu_threshold_vh_diff(data_file: Path, vh_slv_band: str, vh_mst_band: str) -> float:
+    """Computes an Otsu threshold on the VH log-ratio diff."""
+    return compute_otsu_threshold(data_file, vh_slv_band, vh_mst_band, label="VH")
+
+
+def compute_otsu_threshold_vv_diff(data_file: Path, vv_slv_band: str, vv_mst_band: str) -> float:
+    """Computes an Otsu threshold on the VV log-ratio diff."""
+    return compute_otsu_threshold(data_file, vv_slv_band, vv_mst_band, label="VV")
+
 
 
 def computeFloodArea(data: ProductData) -> tuple[float, float, float]:

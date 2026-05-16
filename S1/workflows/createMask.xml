@@ -22,8 +22,11 @@
           <name>Flood</name>
           <type>float32</type>
           <expression>
-            if land_cover_ESA_WorldCover != 80 AND (${vh_slv} &gt; 0 AND ${vh_mst} &gt; 0) AND elevation &lt; ${elev_threshold}
-                AND (${vh_diff} &lt; -3 OR (${vh_diff} &lt; -2 AND ${vv_diff} &lt; -3))
+            if ${hasDataAtPixel} 
+              AND land_cover_ESA_WorldCover != 80
+              AND elevation &lt; ${elev_threshold}
+              AND ${vh_diff} &lt; ${otsu_vh_threshold}
+              AND (${vv_diff} &lt; ${otsu_vv_threshold} OR ${vh_diff} &lt; (${otsu_vh_threshold} - 2)) 
             then 1 else NaN
           </expression>
           <description>Flood Mask</description>

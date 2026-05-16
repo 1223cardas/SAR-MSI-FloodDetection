@@ -5,7 +5,7 @@ from .paths import build_cache_file, build_output_file
 from .discovery import getProductFile, getShapeFile, getWorkflow
 from .snap import execute_command
 from .product_utils import computeWorkflowVariables, refactor_snap_product
-from .raster_utils import compute_water_elevation_p95
+from .raster_utils import compute_water_elevation_p95, compute_otsu_threshold_vh_diff, compute_otsu_threshold_vv_diff
 
 
 def runProcessing(snap_products: list[Product], gptExec: list[str]) -> list[Product]:
@@ -16,7 +16,7 @@ def runProcessing(snap_products: list[Product], gptExec: list[str]) -> list[Prod
     for product in snap_products:
         print(f"|\tProcessing {product.name}")
 
-        output_path = build_cache_file(f"zone_{product.parseDate()}")
+        output_path = build_cache_file(f"{Path(region_of_interest.name).stem}_{product.parseDate()}")
         dim_file = Path(str(output_path) + ".dim")
         product_output = Product(name=output_path.name, path=dim_file, date=product.date)
 
@@ -94,25 +94,24 @@ def runMaskCreation(dimStack_file: Path, gptExec: list[str]) -> Path:
     if dimFlood_file.exists():
         print(f"|\tFlood product already exists: {result}, skipping file creation step.")
         return dimFlood_file
-
-    stack_variables = computeWorkflowVariables(dimStack_file)
-    elev_threshold = compute_water_elevation_p95(dimStack_file)
-
-    print(f"|\tComputed workflow variables: {stack_variables}")
-    print(f"|\tComputed elevation threshold (95th percentile): {elev_threshold:.2f} m")
+    
+    elevFunc = compute_water_elevation_p95
+    otsuVVFunc = compute_otsu_threshold_vv_diff
+    otsuVHFunc = compute_otsu_threshold_vh_diff
+    stack_variables = computeWorkflowVariables(dimStack_file, elevFunc, otsuVVFunc, otsuVHFunc)
 
     cmd = gptExec.copy()
     cmd.extend(
         [
             str(getWorkflow("createMask")),
             f"-Pproduct={str(dimStack_file)}",
-            f"-Pelev_threshold={elev_threshold}",
-            f"-Pvh_slv={stack_variables['vh_slv']}",
-            f"-Pvh_mst={stack_variables['vh_mst']}",
-            f"-Pvv_mst={stack_variables['vv_mst']}",
+            f"-PhasDataAtPixel={stack_variables['hasDataAtPixel']}",
+            f"-Pelev_threshold={stack_variables['elev_threshold']}",
             f"-Pvh_diff={stack_variables['vh_diff']}",
             f"-Pvv_diff={stack_variables['vv_diff']}",
-            f"-Poutput={str(dimFlood_file)}",
+            f"-Potsu_vh_threshold={stack_variables['otsu_vh']}",
+            f"-Potsu_vv_threshold={stack_variables['otsu_vv']}",
+            f"-Poutput={result}",
         ]
     )
 
@@ -128,6 +127,7 @@ def runMaskCreation(dimStack_file: Path, gptExec: list[str]) -> Path:
 def convertFloodToTif(flood_dim: Path, gptExec: list[str]) -> Path:
     tif_path = build_output_file(f"{flood_dim.stem}.tif")
 
+    print("Saving flood product to TIFF...")
     if tif_path.exists():
         print(f"|\tFlood TIFF already exists: {tif_path}, skipping conversion.")
         return tif_path

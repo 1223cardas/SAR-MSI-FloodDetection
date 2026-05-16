@@ -1,55 +1,82 @@
 import xml.etree.ElementTree as ET
+from typing import Callable
 from pathlib import Path
 import re
 
-
-def computeWorkflowVariables(dimstack_file: Path) -> dict[str, str]:
+def computeWorkflowVariables(
+        dimstack_file: Path, 
+        elevFunc: Callable[[Path, list[str]], float], 
+        otsuVVFunc: Callable[[Path, str, str], float],
+        otsuVHFunc: Callable[[Path, str, str], float],
+    ) -> dict[str, str]:
     """Extract band variable names from a stacked DIMAP product."""
-    print(f"Reading stack variables from: {dimstack_file}")
 
     with open(dimstack_file, "r", encoding="ISO-8859-1") as f:
         content = f.read()
 
-    date_pattern = r"(\d{8}|\d{2}[A-Za-z]{3}\d{4})"
+    bands: list[str] = re.findall(r"<BAND_NAME>(.*?)</BAND_NAME>", content)
 
-    vh_mst_match = re.search(rf"Sigma0_VH_mst_{date_pattern}", content)
-    vv_mst_match = re.search(rf"Sigma0_VV_mst_{date_pattern}", content)
-    vh_slv_match = re.search(rf"Sigma0_VH_slv\d+_{date_pattern}", content)
-    vv_slv_match = re.search(rf"Sigma0_VV_slv\d+_{date_pattern}", content)
+    vh_mst = vv_mst = vh_slv = vv_slv = elev_band = lc_band = ""
+    for b in bands:
+        if "VH_mst" in b:
+            vh_mst = b
+        elif "VV_mst" in b:
+            vv_mst = b
+        elif "VH_slv" in b:
+            vh_slv = b
+        elif "VV_slv" in b:
+            vv_slv = b
+        elif "elevation" in b.lower():
+            elev_band = b
+        elif "land_cover" in b.lower():
+            lc_band = b
 
-    if not all([vh_mst_match, vv_mst_match, vh_slv_match, vv_slv_match]):
+    if not all([vh_mst, vv_mst, vh_slv, vv_slv, elev_band, lc_band]):
         missing = [
             name
             for name, m in [
-                ("Sigma0_VH_mst", vh_mst_match),
-                ("Sigma0_VV_mst", vv_mst_match),
-                ("Sigma0_VH_slv", vh_slv_match),
-                ("Sigma0_VV_slv", vv_slv_match),
+                ("Sigma0_VH_mst", vh_mst),
+                ("Sigma0_VV_mst", vv_mst),
+                ("Sigma0_VH_slv", vh_slv),
+                ("Sigma0_VV_slv", vv_slv),
+                ("Elevation band", elev_band),
+                ("Land cover band", lc_band)
             ]
-            if m is None
+            if m == ""
         ]
+
         raise ValueError(
             "Could not extract all variable names from stack product.\n"
             f"Missing: {', '.join(missing)}\n"
             "Check that the stack was created correctly and band names are present."
         )
 
-    vh_mst = vh_mst_match.group(0)  # type: ignore[union-attr]
-    vv_mst = vv_mst_match.group(0)  # type: ignore[union-attr]
-    vh_slv = vh_slv_match.group(0)  # type: ignore[union-attr]
-    vv_slv = vv_slv_match.group(0)  # type: ignore[union-attr]
-
     vh_diff = f"10 * log10({vh_slv}) - 10 * log10({vh_mst})"
     vv_diff = f"10 * log10({vv_slv}) - 10 * log10({vv_mst})"
 
+    hasDataAtPixel = (
+        f"(({vh_slv} > 0 AND {vh_mst} > 0) AND ({vv_slv} > 0 AND {vv_mst} > 0))"
+    )
+
+    varsElevation = [elev_band, lc_band] 
+    data_file = Path(str(dimstack_file).replace(".dim", ".data"))
+
+    elev_threshold = elevFunc(data_file, varsElevation)
+    otsu_vh = otsuVHFunc(data_file, vh_slv, vh_mst)
+    otsu_vv = otsuVVFunc(data_file, vv_slv, vv_mst)
+
     variables = {
-        "vh_mst": vh_mst,
-        "vv_mst": vv_mst,
-        "vh_slv": vh_slv,
-        "vv_slv": vv_slv,
         "vh_diff": vh_diff,
         "vv_diff": vv_diff,
+        "otsu_vh": otsu_vh,
+        "otsu_vv": otsu_vv,
+        "hasDataAtPixel": hasDataAtPixel,
+        "elev_threshold": elev_threshold
     }
+
+    # print(f"|\tVariables: ")
+    # for k, v in variables.items():
+    #     print(f"|\t- {k}: {v}")
 
     return variables
 
@@ -83,35 +110,18 @@ def refactor_snap_product(full_path: str | Path) -> None:
     print(f"Refactored: '{full_name}' -> '{new_name}'")
 
 
-def get_band_file(dim_path: Path, band_name: str) -> Path:
-    """
-    Parses a SNAP .dim file to find the .img file path for a given band name.
-    The .data folder sits next to the .dim file.
-    """
-    tree = ET.parse(dim_path)
-    root = tree.getroot()
 
-    # Band names and their data files are listed under <Image_Interpretation>
-    for spectral_band in root.findall(".//Spectral_Band_Info"):
-        name_el = spectral_band.find("BAND_NAME")
-        if name_el is not None and name_el.text == band_name:
-            # The index of this band maps to the .img file in the .data folder
-            # Files are named like: <product>.data/<band_name>.img
-            data_dir = dim_path.parent / (dim_path.stem + ".data")
-            img_file = data_dir / f"{band_name}.img"
-            if img_file.exists():
-                return img_file
-            # Sometimes SNAP uses the band index as filename fallback
-            band_index_el = spectral_band.find("BAND_INDEX")
-            if band_index_el is not None:
-                img_file = data_dir / f"band_{band_index_el.text}.img"
-                if img_file.exists():
-                    return img_file
+def get_band_file(data_file: Path, band_name: str) -> Path:
+    """Returns the .img file for a given band name from a SNAP .dim product."""
+    img_file = data_file / f"{band_name}.img"
 
-    raise FileNotFoundError(
-        f"Band '{band_name}' not found in {dim_path}. "
-        f"Available bands: {list_bands(dim_path)}"
-    )
+    if not img_file.exists():
+        raise FileNotFoundError(
+            f"Band '{band_name}' not found in {data_file}."
+            f"Available bands: {list_bands(Path(str(data_file).replace('.data', '.dim')))}"
+        )
+    
+    return img_file
 
 
 def list_bands(dim_path: Path) -> list[str]:
