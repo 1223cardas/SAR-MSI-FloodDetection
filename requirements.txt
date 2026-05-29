@@ -4,3 +4,7 @@ matplotlib==3.10.9
 numpy==2.4.4
 scikit-image==0.26.0
 pytest==9.0.3
+sentinelhub==3.11.5
+geopy==2.4.1
+requests-oauthlib==2.0.0
+oauthlib==3.3.1
