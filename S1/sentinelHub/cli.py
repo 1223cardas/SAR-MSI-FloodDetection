@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from geopy.geocoders import Nominatim
-from classes import Place
-from config import NOMINATIM_LANGUAGE, USER_AGENT
+from S1.sentinelHub.classes import Place
+from S1.sentinelHub.config import NOMINATIM_LANGUAGE, USER_AGENT
 
 def getInput(prompt: str, errorMessage: str, expectedType):
 	while True:

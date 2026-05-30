@@ -19,6 +19,7 @@ class searchParams:
 
 @dataclass
 class LogEntry:
+	collection: list[str] = field(default_factory=list)
 	place_query: str = ""
 	place_name: str = ""
 	bbox: list[float] = field(default_factory=list)
@@ -27,9 +28,11 @@ class LogEntry:
 	beforeId: str = ""
 	afterId: str = ""
 
+
 	@classmethod
 	def from_csv_row(cls, row):
 		return cls(
+			collection=json.loads(row.get("collection", "[]")),
 			place_query=row.get("place_query", ""),
 			place_name=row.get("place_name", ""),
 			bbox=json.loads(row.get("bbox") or "[]"),
@@ -41,6 +44,7 @@ class LogEntry:
 	
 	def to_dict(self):
 		return {
+			"collection": json.dumps(self.collection),
 			"place_query": self.place_query,
 			"place_name": self.place_name,
 			"bbox": json.dumps(self.bbox),
@@ -49,6 +53,9 @@ class LogEntry:
 			"beforeId": self.beforeId,
 			"afterId": self.afterId
 		}
+
+	def productFromIds(self):
+		return [Product(id=self.beforeId), Product(id=self.afterId)]
 
 
 @dataclass
@@ -83,6 +90,7 @@ class Product:
 	id: str = ""
 	datetime: str = ""
 	uuid: str = ""
+
 
 
 @dataclass

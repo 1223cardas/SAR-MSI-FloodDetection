@@ -1,12 +1,12 @@
-from catalog import getTimeFrame, getProducts, select_products_around_date, filter_features_fully_containing_bbox
-from config import DEFAULT_AOI_KM, DEFAULT_DAYS_MARGIN, DEFAULT_SEARCH_LIMIT
-from session import initializeSession, initializeSessionPasswordGrant
-from cli import chooseRegion, prompt_crisis_date, prompt_numeric
-from download import resolve_products_uuids, download_products
-from search_log import append_search_log, choose_log_entry
-from classes import searchParams, LogEntry
+from S1.sentinelHub.catalog import getTimeFrame, getProducts, select_products_around_date, filter_features_fully_containing_bbox
+from S1.sentinelHub.config import DEFAULT_AOI_KM, DEFAULT_DAYS_MARGIN, DEFAULT_SEARCH_LIMIT
+from S1.sentinelHub.session import initializeSession, initializeSessionPasswordGrant
+from S1.sentinelHub.cli import chooseRegion, prompt_crisis_date, prompt_numeric
+from S1.sentinelHub.download import resolve_products_uuids, download_products
+from S1.sentinelHub.search_log import append_search_log, choose_log_entry
+from S1.sentinelHub.classes import searchParams, LogEntry
 from types import SimpleNamespace
-from aoi import compute_bbox
+from S1.sentinelHub.aoi import compute_bbox
 from typing import Optional
 
 def runProductDiscovery():

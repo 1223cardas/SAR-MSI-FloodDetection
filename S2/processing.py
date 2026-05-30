@@ -1,6 +1,6 @@
 import numpy as np
 
-from .config import EPS, NDWI_THRESHOLD, NODATA_VALUE, SCALE_FACTOR
+from S2.config import EPS, NDWI_THRESHOLD, NODATA_VALUE, SCALE_FACTOR
 
 try:
     from skimage.filters import threshold_otsu

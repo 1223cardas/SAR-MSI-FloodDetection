@@ -1,8 +1,8 @@
 import csv
-from classes import LogEntry
+from S1.sentinelHub.classes import LogEntry
 from pathlib import Path
 from typing import Optional
-from config import LOG_PATH
+from S1.sentinelHub.config import LOG_PATH
 
 fieldnames = [
 	"place_query",

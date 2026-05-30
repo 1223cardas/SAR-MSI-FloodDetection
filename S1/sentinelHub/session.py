@@ -1,7 +1,7 @@
 from oauthlib.oauth2 import BackendApplicationClient
 from requests_oauthlib import OAuth2Session
 from dotenv import load_dotenv
-from config import TOKEN_URL
+from S1.sentinelHub.config import TOKEN_URL
 import os
 import requests
 

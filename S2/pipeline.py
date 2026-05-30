@@ -2,16 +2,16 @@ import os
 
 import rasterio
 
-from .config import NODATA_VALUE
-from .preview import save_preview_png, show_preview_window
-from .processing import (
+from S2.config import NODATA_VALUE
+from S2.preview import save_preview_png, show_preview_window
+from S2.processing import (
     compute_binary_area,
     compute_ndwi,
     compute_optimal_threshold,
     flood_map,
     water_mask,
 )
-from .raster_io import debug, ensure_alignment, prepare_workspace, stats, write_raster
+from S2.raster_io import debug, ensure_alignment, prepare_workspace, stats, write_raster
 
 
 def _print_area(label, area_m2):

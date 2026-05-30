@@ -2,9 +2,9 @@ import os
 
 import numpy as np
 
-from .config import NDWI_THRESHOLD, NODATA_VALUE
-from .processing import compute_optimal_threshold
-from .raster_io import read_raster
+from S2.config import NDWI_THRESHOLD, NODATA_VALUE
+from S2.processing import compute_optimal_threshold
+from S2.raster_io import read_raster
 
 try:
     import matplotlib.pyplot as plt

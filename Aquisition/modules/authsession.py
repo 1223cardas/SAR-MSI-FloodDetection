@@ -1,9 +1,9 @@
 from oauthlib.oauth2 import BackendApplicationClient
 from requests_oauthlib import OAuth2Session
 from dotenv import load_dotenv
-from .config import TOKEN_URL
 import requests
 import os
+from Aquisition.modules.config import TOKEN_URL
 
 load_dotenv()
 

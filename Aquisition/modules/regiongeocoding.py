@@ -1,6 +1,7 @@
 from geopy.geocoders import Nominatim
-from .classes import Place, BBox, LogEntry
-from . import config
+from Aquisition.modules.classes import Place, BBox, LogEntry
+from Aquisition.modules import config
+from mainconfig import input
 import math
 
 def requestRegionInfo(region_name: str, geolocator: Nominatim) -> list[Place]:
@@ -36,10 +37,11 @@ def requestRegionInfo(region_name: str, geolocator: Nominatim) -> list[Place]:
 def selectPlace(places: list[Place]) -> Place | None:
 	while True:
 		selection = input(
-			"Select a region by entering the corresponding number.\n"
-			"(Press Enter to check another region):\n" + config.CLI_PROMPT
+			"Select a region by entering the corresponding number. (or 'b' to choose another region)",
+			expected_type=str
 		)
-		if not selection: break
+		if selection.lower() == 'b':
+			return None
 
 		try:
 			selected_index = int(selection) - 1
@@ -50,26 +52,39 @@ def selectPlace(places: list[Place]) -> Place | None:
 			place = places[selected_index]
 		except ValueError:
 			print("Invalid input. Please enter a number.")
+			continue
 
-		confirm = input(
-			f"Use '{place.name}'? [y/n]\n"
-			"(Press Enter to choose another region):\n" + config.CLI_PROMPT
-		).strip().lower()
-		if confirm not in ("y", "yes"): continue
-
-		return place
-	
-	return None
-
-
+		while True:
+			confirm = input(
+				f"Use '{place.name}'? [y/n]:",
+				expected_type=str
+				)
+			if confirm.lower() == 'n':
+				break
+			elif confirm.lower() == 'y':
+				return place
+			else:
+				print("Invalid input. Please enter 'y' or 'n'")
+				continue
 
 def getbbox(place: Place) -> BBox:
 	while True:
 		aoi_size = input(
-			f"Enter AOI size in Km (square side, Press Enter for default value [{config.DEFAULT_AOI_KM}Km]): "
-		).strip()
-
+			f"Enter AOI size in Km (square side, minimum default value=[{config.DEFAULT_AOI_KM}Km]):",
+			expected_type=float
+		)
+		
 		size_km = float(aoi_size) if aoi_size else config.DEFAULT_AOI_KM
+
+		if size_km <= 0:
+			print("AOI size must be a positive number. Please try again.")
+			continue
+		if size_km < config.DEFAULT_AOI_KM:
+			print(f"AOI size too small. Using default value of {config.DEFAULT_AOI_KM} Km.")
+			size_km = config.DEFAULT_AOI_KM
+		if size_km > 500:
+			print("AOI size too large. Please enter a smaller value (max 500 Km).")
+			continue
 
 		coords = compute_bbox(place, size_km)
 		if not coords:
@@ -107,12 +122,9 @@ def getRegion(entry: LogEntry):
 	geolocator = Nominatim(user_agent=config.USER_AGENT) # type: ignore[call-arg]
 
 	while True:
-		region_name = input(
-			
-			"\nEnter the name of the region:\n" + config.CLI_PROMPT
-		).strip()
-		if not region_name:
-			print("Input cannot be empty. Please try again.")
+		region_name = input("\nEnter the name of the region:", expected_type=str)
+		if len(region_name) == 1:
+			print("Region name too short. Please enter a more specific name.")
 			continue
 		
 		places = requestRegionInfo(region_name, geolocator)
@@ -122,7 +134,6 @@ def getRegion(entry: LogEntry):
 		print(f"Matches with {region_name}:")
 		for idx, place in enumerate(places, start=1):
 			print(f"\t[{idx}] {place.name} (lat={place.lat}, lon={place.lon})")
-		print()
 		
 		
 		selectedPlace = selectPlace(places)

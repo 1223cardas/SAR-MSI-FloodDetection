@@ -1,8 +1,8 @@
 from requests_oauthlib import OAuth2Session
 from datetime import datetime, timedelta
 from shapely.geometry import shape, box
-from config import CATALOG_URL
-from classes import Product
+from S1.sentinelHub.config import CATALOG_URL
+from S1.sentinelHub.classes import Product
 
 
 def getTimeFrame(crisisDate: str, daysMargin=5) -> str:

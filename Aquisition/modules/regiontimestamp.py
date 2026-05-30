@@ -1,16 +1,16 @@
 from datetime import datetime, timedelta
-from .classes import TimeFrame, LogEntry
-from . import config
+from Aquisition.modules.classes import TimeFrame, LogEntry
+from Aquisition.modules import config
+from mainconfig import input
 
 
 def prompt_crisis_date() -> str:
 	while True:
-		crisis_date = input("Crisis date (YYYY-MM-DD or YYYY-MM-DD-hh): ").strip()
-
-		if not crisis_date:
-			print("Crisis date cannot be empty.")
-			continue
-
+		crisis_date = input(
+			"Insert crisis date (YYYY-MM-DD or YYYY-MM-DD-hh):",
+			expected_type=str
+			)
+		
 		# Try parsing with hour first: YYYY-MM-DD-HH
 		try:
 			d = datetime.strptime(crisis_date, "%Y-%m-%d-%H")
@@ -39,6 +39,25 @@ def getTimeFrame(crisisDate: datetime, daysMargin) -> TimeFrame | None:
 
 
 
+def setDaysMargin() -> int:
+	while True:
+		margin_days = input(
+				f"Enter days margin around crisis date (minimum default value=[{config.DEFAULT_DAYS_MARGIN}days]):",
+				expected_type=int
+				)
+
+		margin = int(margin_days) if margin_days else config.DEFAULT_DAYS_MARGIN
+		if margin <= 0:
+			print("Margin must positive integer. Please try again.")
+			continue
+		if margin < config.DEFAULT_DAYS_MARGIN:
+			print(f"Margin too small. Using default value of {config.DEFAULT_DAYS_MARGIN} days.")
+			margin = config.DEFAULT_DAYS_MARGIN
+		if margin > 20:
+			print("Margin too large. Choose a smaller window of days.")
+			continue
+		return margin
+
 def getTimeSeries(entry: LogEntry):
 	while True:
 		crisis_date = prompt_crisis_date()
@@ -46,12 +65,8 @@ def getTimeSeries(entry: LogEntry):
 			print("Error parsing crisis date. Please try again.")
 			continue
 
-		margin_days = input(
-			f"Enter days margin around crisis date (Press Enter for default value [{config.DEFAULT_DAYS_MARGIN}days]): "
-			).strip()
+		margin = setDaysMargin()
 		
-		margin = int(margin_days) if margin_days else config.DEFAULT_DAYS_MARGIN
-
 		crisis_date_dt = datetime.strptime(crisis_date, "%Y-%m-%dT%H:%M:%SZ") 
 		timeFrame = getTimeFrame(crisis_date_dt, margin)
 

@@ -1,27 +1,29 @@
 from requests_oauthlib import OAuth2Session
-from .authsession import initSHSession
 from shapely.geometry import shape, box
-from .classes import Product, LogEntry
-from . import config
+from Aquisition.modules.authsession import initSHSession
+from Aquisition.modules.classes import Product, LogEntry
+from Aquisition.modules import config
 
 
-def requestProducts(entry: LogEntry) -> list[Product]:
+def requestProducts(entry: LogEntry, productType: str) -> list[Product]:
 	query = {
 		"bbox": entry.bbox,
 		"datetime": entry.date_range,
-		"collections": ["sentinel-1-grd"],
+		"collections": [productType],
 		"limit": config.DEFAULT_SEARCH_LIMIT,
 	}
 
 	session = initSHSession()
 
+	print("Searching for products...")
 	availibleProducts = getProducts(query, session)
+	print("Filtering products based on spatial coverage...")
 	filteredProducts = filter_features_fully_containing_bbox(availibleProducts, entry.bbox)
 	[before, after] = select_products_around_date(filteredProducts, entry.crisis_date)
+	print("Found two products around the crisis date.")
 
 	entry.beforeId = before.id
 	entry.afterId = after.id
-
 	return [before, after]
 
 
@@ -94,7 +96,6 @@ def filter_features_fully_containing_bbox(features: list, bbox: list) -> list:
 
 		covers = feat_geom.covers(bbox_geom)
 
-		print(f"Feature {feat_id} covers {pct:.2f}% of the bbox.")
 		if covers or pct >= 90.0:
 			remainder.append(feature)
 

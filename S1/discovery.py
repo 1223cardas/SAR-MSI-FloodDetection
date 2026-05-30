@@ -2,8 +2,8 @@ from datetime import datetime
 from pathlib import Path
 import re
 
-from .models import Product
-from .paths import paths
+from S1.models import Product
+from S1.paths import paths
 
 
 def getProducts() -> list[Product]:

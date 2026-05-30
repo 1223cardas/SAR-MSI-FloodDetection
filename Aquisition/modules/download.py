@@ -1,9 +1,23 @@
-from .classes import Product
-from .authsession import initCDSESession
 from requests_oauthlib import OAuth2Session
-from . import config
-from tqdm import tqdm
 from pathlib import Path
+from tqdm import tqdm
+from Aquisition.modules.classes import Product
+from Aquisition.modules.authsession import initCDSESession
+from Aquisition.modules import config
+from mainconfig import input
+
+def checkIfDownloaded(products: list[Product]) -> list[Path]:
+	paths = []
+	for prod in products:
+		output = config.OUTPUT_DIR / f"{prod.id}.zip"
+		if output.exists():
+			print(f"Product {prod.id} already exists. Skipping download.")
+			paths.append(output)
+		else:
+			print(f"Product {prod.id} not found at {output}. Will be queued for download.")
+	
+	return paths
+
 
 
 def resolveUUIDs(products: list[Product], session: OAuth2Session) -> list[Product]:
@@ -39,7 +53,6 @@ def downloadProducts(products: list[Product], session: OAuth2Session) -> list[Pa
 	output_dir = config.OUTPUT_DIR
 	output_dir.mkdir(parents=True, exist_ok=True)
 	
-
 	paths = []
 	for prod in products:
 		if not prod.uuid:
@@ -59,11 +72,11 @@ def downloadProducts(products: list[Product], session: OAuth2Session) -> list[Pa
 			resp.raise_for_status()
 
 			output.parent.mkdir(parents=True, exist_ok=True)
-			print(f"Starting download of product {prod.id} (UUID: {prod.uuid}) to {output}...")
+			print(f"Starting download of product {prod.id}...")
 
 			total = int(resp.headers.get("Content-Length", 0))
 			with output.open("wb") as f:
-				with tqdm(total=total, unit="B", unit_scale=True, desc=f"Downloading {prod.id}...\n") as pbar:
+				with tqdm(total=total, unit="B", unit_scale=True, desc=f"Downloading...") as pbar:
 					for chunk in resp.iter_content(chunk_size=8 * MB):
 						if chunk:
 							f.write(chunk)
@@ -78,6 +91,16 @@ def downloadProducts(products: list[Product], session: OAuth2Session) -> list[Pa
 	return paths
 
 def queueProductsForDownload(products: list[Product]) -> list[Path]:
+	checked_paths = checkIfDownloaded(products)
+	if len(checked_paths) == len(products):
+		print("All products already downloaded. No downloads queued.")
+		return checked_paths
+		
+	opt = input("Queue products for download? [y/n]\n" + config.CLI_PROMPT).strip().lower()
+	if opt not in ("y", "yes"):
+		print("Download skipped")
+		return []
+
 	session = initCDSESession()
 
 	resolveUUIDs(products, session)

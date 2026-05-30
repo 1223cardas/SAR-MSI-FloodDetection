@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from .models import Product
-from .paths import build_cache_file, build_output_file
-from .discovery import getProductFile, getShapeFile, getWorkflow
-from .snap import execute_command
-from .product_utils import computeWorkflowVariables, refactor_snap_product
-from .raster_utils import compute_water_elevation_p95, compute_otsu_threshold_vh_diff, compute_otsu_threshold_vv_diff
+from S1.models import Product
+from S1.paths import build_cache_file, build_output_file
+from S1.discovery import getProductFile, getShapeFile, getWorkflow
+from S1.snap import execute_command
+from S1.product_utils import computeWorkflowVariables, refactor_snap_product
+from S1.raster_utils import compute_water_elevation_p95, compute_otsu_threshold_vh_diff, compute_otsu_threshold_vv_diff
 
 
 def runProcessing(snap_products: list[Product], gptExec: list[str]) -> list[Product]:

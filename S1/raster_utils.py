@@ -4,8 +4,8 @@ import numpy as np
 import rasterio
 from rasterio.transform import array_bounds
 from skimage.filters import threshold_otsu
-from .models import ProductData
-from .product_utils import get_band_file
+from S1.models import ProductData
+from S1.product_utils import get_band_file
 
 
 

@@ -2,12 +2,12 @@ from pathlib import Path
 import rasterio
 import sys
 
-from .discovery import getFloodDimFile, getProducts
-from .models import Product, ProductData
-from .processing import convertFloodToTif, runMaskCreation, runProcessing, runStacking
-from .product_utils import get_band_file
-from .raster_utils import computeFloodArea, displayResults
-from .paths import build_output_file
+from S1.discovery import getFloodDimFile, getProducts
+from S1.models import Product, ProductData
+from S1.processing import convertFloodToTif, runMaskCreation, runProcessing, runStacking
+from S1.product_utils import get_band_file
+from S1.raster_utils import computeFloodArea, displayResults
+from S1.paths import build_output_file
 
 
 def processProducts(gptExec: list[str]) -> None:

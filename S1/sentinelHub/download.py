@@ -1,7 +1,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 from requests_oauthlib import OAuth2Session
-from config import ZIPPER_ODATA, FILTER_LIST_URL, OUTPUT_DIR
+from S1.sentinelHub.config import ZIPPER_ODATA, FILTER_LIST_URL, OUTPUT_DIR
 from tqdm import tqdm
 
 
