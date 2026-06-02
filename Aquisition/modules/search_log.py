@@ -1,11 +1,13 @@
-from Aquisition.modules.classes import LogEntry
 from pathlib import Path
 import csv
-from Aquisition.modules import config
+
+from Aquisition.modules.aclasses import LogEntry
+from Aquisition.modules import aquisition_config
+from mainconfig import LOG_PATH
 
 
 def saveLogEntry(entry: LogEntry):
-	log_path = config.LOG_PATH
+	log_path = LOG_PATH
 	log_path.parent.mkdir(parents=True, exist_ok=True)
 
 	# If file doesn't exist yet, create it with header and write the entry.
@@ -28,7 +30,7 @@ def saveLogEntry(entry: LogEntry):
 
 def writeToFile(entry: LogEntry, log_path: Path, is_new: bool):
 	with log_path.open("a", newline="", encoding="utf-8") as csvWrite:
-		writer = csv.DictWriter(csvWrite, fieldnames=config.CSV_FIELDNAMES)
+		writer = csv.DictWriter(csvWrite, fieldnames=aquisition_config.CSV_FIELDNAMES)
 		if is_new: writer.writeheader()
 		writer.writerow(entry.to_dict())
 		print("Log saved to:", log_path)
@@ -36,7 +38,7 @@ def writeToFile(entry: LogEntry, log_path: Path, is_new: bool):
 
 
 def load_search_log() -> list[LogEntry]:
-	log_path = config.LOG_PATH
+	log_path = LOG_PATH
 	
 	if not log_path.exists():
 		print("Log file not found:", log_path)

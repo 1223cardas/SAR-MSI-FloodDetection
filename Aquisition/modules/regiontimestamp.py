@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
-from Aquisition.modules.classes import TimeFrame, LogEntry
-from Aquisition.modules import config
+
+from Aquisition.modules.aclasses import TimeFrame, LogEntry
+from Aquisition.modules import aquisition_config
 from mainconfig import input
 
 
@@ -42,17 +43,17 @@ def getTimeFrame(crisisDate: datetime, daysMargin) -> TimeFrame | None:
 def setDaysMargin() -> int:
 	while True:
 		margin_days = input(
-				f"Enter days margin around crisis date (minimum default value=[{config.DEFAULT_DAYS_MARGIN}days]):",
+				f"Enter days margin around crisis date (minimum default value=[{aquisition_config.DEFAULT_DAYS_MARGIN}days]):",
 				expected_type=int
 				)
 
-		margin = int(margin_days) if margin_days else config.DEFAULT_DAYS_MARGIN
+		margin = int(margin_days) if margin_days else aquisition_config.DEFAULT_DAYS_MARGIN
 		if margin <= 0:
 			print("Margin must positive integer. Please try again.")
 			continue
-		if margin < config.DEFAULT_DAYS_MARGIN:
-			print(f"Margin too small. Using default value of {config.DEFAULT_DAYS_MARGIN} days.")
-			margin = config.DEFAULT_DAYS_MARGIN
+		if margin < aquisition_config.DEFAULT_DAYS_MARGIN:
+			print(f"Margin too small. Using default value of {aquisition_config.DEFAULT_DAYS_MARGIN} days.")
+			margin = aquisition_config.DEFAULT_DAYS_MARGIN
 		if margin > 20:
 			print("Margin too large. Choose a smaller window of days.")
 			continue

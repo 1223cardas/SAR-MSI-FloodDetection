@@ -2,11 +2,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 
-from S1 import scriptS1, check_directories, getExecutable
 from S2 import discovery as s2_discovery
 from S2 import pipeline as s2_pipeline
 from S2 import preview as s2_preview
 
+from S1.Processing import processing as s1_processing
+from S1.Processing.modules import check_directories, getExecutable
 
 @dataclass
 class ProcessorResult:
@@ -29,11 +30,11 @@ class S1Processor(Processor):
 
     def run(self, run_processing: bool, view: bool) -> ProcessorResult:
         if run_processing:
-            scriptS1.processProducts(self.gpt_exec)
+            s1_processing.processProducts(self.gpt_exec)
 
         output_path = None
         if view:
-            output_path = scriptS1.calculateAndDisplayResults()
+            output_path = s1_processing.calculateAndDisplayResults()
 
         return ProcessorResult(name="s1", output_path=output_path)
 

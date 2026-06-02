@@ -1,4 +1,11 @@
+from pathlib import Path
 import builtins
+
+ROOT_DIR = Path(__file__).resolve().parent # Aquisition/ folder
+OUTPUT_DIR = ROOT_DIR / "downloads"
+AQUISTION_DIR = ROOT_DIR / "Aquisition"
+LOG_PATH = AQUISTION_DIR / "search_log.csv"
+
 
 CLI_PROMPT = "SAR-MSI-FloodDetection> "
 

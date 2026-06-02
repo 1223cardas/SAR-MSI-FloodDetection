@@ -1,8 +1,9 @@
 from requests_oauthlib import OAuth2Session
 from shapely.geometry import shape, box
+
 from Aquisition.modules.authsession import initSHSession
-from Aquisition.modules.classes import Product, LogEntry
-from Aquisition.modules import config
+from Aquisition.modules.aclasses import Product, LogEntry
+from Aquisition.modules import aquisition_config
 
 
 def requestProducts(entry: LogEntry, productType: str) -> list[Product]:
@@ -10,13 +11,13 @@ def requestProducts(entry: LogEntry, productType: str) -> list[Product]:
 		"bbox": entry.bbox,
 		"datetime": entry.date_range,
 		"collections": [productType],
-		"limit": config.DEFAULT_SEARCH_LIMIT,
+		"limit": aquisition_config.DEFAULT_SEARCH_LIMIT,
 	}
 
 	session = initSHSession()
 
 	print("Searching for products...")
-	availibleProducts = getProducts(query, session)
+	availibleProducts = fetchProducts(query, session)
 	print("Filtering products based on spatial coverage...")
 	filteredProducts = filter_features_fully_containing_bbox(availibleProducts, entry.bbox)
 	[before, after] = select_products_around_date(filteredProducts, entry.crisis_date)
@@ -27,12 +28,12 @@ def requestProducts(entry: LogEntry, productType: str) -> list[Product]:
 	return [before, after]
 
 
-def getProducts(query, session: OAuth2Session) -> list:
+def fetchProducts(query, session: OAuth2Session) -> list:
 	if not all(k in query for k in ("bbox", "datetime", "collections", "limit")):
 		raise ValueError("Query must contain 'bbox', 'datetime', 'collections', and 'limit' keys.")
 
 	try:
-		response = session.post(config.CATALOG_URL, json=query)
+		response = session.post(aquisition_config.CATALOG_URL, json=query)
 		response.raise_for_status()
 		results = response.json()
 
@@ -66,6 +67,7 @@ def select_products_around_date(features: list, crisis_date: str) -> list[Produc
 		after_item = min(after, key=lambda x: x.datetime)
 	except ValueError:
 		print("No suitable products found around the crisis date.")
+		return []
 
 	return [before_item, after_item]
 

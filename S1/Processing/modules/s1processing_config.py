@@ -1,0 +1,1 @@
+S1_COLLECTION_NAME = "sentinel-1-grd"

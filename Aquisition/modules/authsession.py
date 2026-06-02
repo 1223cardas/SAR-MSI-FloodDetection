@@ -3,7 +3,9 @@ from requests_oauthlib import OAuth2Session
 from dotenv import load_dotenv
 import requests
 import os
-from Aquisition.modules.config import TOKEN_URL
+
+from Aquisition.modules.aquisition_config import TOKEN_URL
+
 
 load_dotenv()
 

@@ -132,8 +132,8 @@
       <subSamplingX>1</subSamplingX>
       <subSamplingY>1</subSamplingY>
       <fullSwath>false</fullSwath>
-      <vectorFile>${vectorFile}</vectorFile>
-      <polygonRegion/>
+      <vectorFile/>
+      <polygonRegion>${polygonRegion}</polygonRegion>
       <copyMetadata>true</copyMetadata>
     </parameters>
   </node>

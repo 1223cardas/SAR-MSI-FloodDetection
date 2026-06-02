@@ -1,9 +1,9 @@
-from Aquisition.modules import authsession, classes, config, download, regiongeocoding, regiontimestamp, request, search_log
+from Aquisition.modules import aclasses, aquisition_config, authsession, download, regiongeocoding, regiontimestamp, request, search_log
 
 __all__ = [
     "authsession",
-    "classes",
-    "config",
+    "aclasses",
+    "aquisition_config",
     "download",
     "regiongeocoding",
     "regiontimestamp",

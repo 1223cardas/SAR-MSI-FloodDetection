@@ -1,8 +1,10 @@
 from geopy.geocoders import Nominatim
-from Aquisition.modules.classes import Place, BBox, LogEntry
-from Aquisition.modules import config
-from mainconfig import input
 import math
+
+from Aquisition.modules.aclasses import Place, BBox, LogEntry
+from Aquisition.modules import aquisition_config
+from mainconfig import input
+
 
 def requestRegionInfo(region_name: str, geolocator: Nominatim) -> list[Place]:
 	try:
@@ -10,8 +12,8 @@ def requestRegionInfo(region_name: str, geolocator: Nominatim) -> list[Place]:
 		locations = geolocator.geocode(
 			region_name,
 			exactly_one=False,
-			limit=config.DEFAULT_SEARCH_LIMIT,
-			language=config.NOMINATIM_LANGUAGE # type: ignore[call-arg]
+			limit=aquisition_config.DEFAULT_SEARCH_LIMIT,
+			language=aquisition_config.NOMINATIM_LANGUAGE # type: ignore[call-arg]
 		)
 
 		if not locations or locations is None:
@@ -45,7 +47,7 @@ def selectPlace(places: list[Place]) -> Place | None:
 
 		try:
 			selected_index = int(selection) - 1
-			if selected_index not in range(1, len(places) + 1):
+			if selected_index not in range(0, len(places)):
 				print("Selection out of range. Please enter a valid number.")
 				continue
 			
@@ -70,18 +72,18 @@ def selectPlace(places: list[Place]) -> Place | None:
 def getbbox(place: Place) -> BBox:
 	while True:
 		aoi_size = input(
-			f"Enter AOI size in Km (square side, minimum default value=[{config.DEFAULT_AOI_KM}Km]):",
+			f"Enter AOI size in Km (square side, minimum default value=[{aquisition_config.DEFAULT_AOI_KM}Km]):",
 			expected_type=float
 		)
 		
-		size_km = float(aoi_size) if aoi_size else config.DEFAULT_AOI_KM
+		size_km = float(aoi_size) if aoi_size else aquisition_config.DEFAULT_AOI_KM
 
 		if size_km <= 0:
 			print("AOI size must be a positive number. Please try again.")
 			continue
-		if size_km < config.DEFAULT_AOI_KM:
-			print(f"AOI size too small. Using default value of {config.DEFAULT_AOI_KM} Km.")
-			size_km = config.DEFAULT_AOI_KM
+		if size_km < aquisition_config.DEFAULT_AOI_KM:
+			print(f"AOI size too small. Using default value of {aquisition_config.DEFAULT_AOI_KM} Km.")
+			size_km = aquisition_config.DEFAULT_AOI_KM
 		if size_km > 500:
 			print("AOI size too large. Please enter a smaller value (max 500 Km).")
 			continue
@@ -99,10 +101,10 @@ def getbbox(place: Place) -> BBox:
 def compute_bbox(place: Place, size_km: float) -> list[float]:
 	try:
 		half = size_km / 2.0
-		dlat = half / config.KM_PER_DEG_LAT
+		dlat = half / aquisition_config.KM_PER_DEG_LAT
 		cos_lat = math.cos(math.radians(place.lat))
 
-		dlon = half / (config.KM_PER_DEG_LON * cos_lat)
+		dlon = half / (aquisition_config.KM_PER_DEG_LON * cos_lat)
 
 		min_lon = place.lon - dlon
 		min_lat = place.lat - dlat
@@ -119,7 +121,7 @@ def compute_bbox(place: Place, size_km: float) -> list[float]:
 
 
 def getRegion(entry: LogEntry):
-	geolocator = Nominatim(user_agent=config.USER_AGENT) # type: ignore[call-arg]
+	geolocator = Nominatim(user_agent=aquisition_config.USER_AGENT) # type: ignore[call-arg]
 
 	while True:
 		region_name = input("\nEnter the name of the region:", expected_type=str)
