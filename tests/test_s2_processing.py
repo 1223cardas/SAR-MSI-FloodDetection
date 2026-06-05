@@ -1,7 +1,7 @@
 import numpy as np
 
 from S2.config import EPS, NDWI_THRESHOLD, NODATA_VALUE, SCALE_FACTOR
-from S2.processing import compute_binary_area, compute_ndwi, flood_map, water_mask
+from S2.processing import compute_binary_area, compute_ndwi, flood_map, new_water_mask, water_difference, water_mask
 
 
 def test_compute_ndwi_marks_nodata_and_uses_scaled_values():
@@ -40,6 +40,26 @@ def test_flood_map_detects_new_water_only():
     result = flood_map(after, before)
 
     expected = np.array([[1, 0], [0, 1]], dtype="uint8")
+    np.testing.assert_array_equal(result, expected)
+
+
+def test_water_difference_returns_signed_change():
+    before = np.array([[0, 1], [1, 0]], dtype="uint8")
+    after = np.array([[1, 1], [0, 0]], dtype="uint8")
+
+    result = water_difference(after, before)
+
+    expected = np.array([[1, 0], [-1, 0]], dtype="int16")
+    np.testing.assert_array_equal(result, expected)
+
+
+def test_new_water_mask_keeps_only_positive_change():
+    before = np.array([[0, 1], [1, 0]], dtype="uint8")
+    after = np.array([[1, 1], [0, 0]], dtype="uint8")
+
+    result = new_water_mask(after, before)
+
+    expected = np.array([[1, 0], [0, 0]], dtype="uint8")
     np.testing.assert_array_equal(result, expected)
 
 
