@@ -2,11 +2,11 @@ from S1.Processing.modules.s1processing_config import S1_COLLECTION_NAME
 from S1.Processing.modules.utils import extractDateFromProduct
 from S1.Processing.modules.pclasses import Product
 from S1.Processing.modules.paths import paths
-from Aquisition.aquireProducts import aquireEntryFromLog, aquireProducts
+from Aquisition.aquireProducts import aquireEntryFromLog
 from mainconfig import OUTPUT_DIR
 from pathlib import Path
 import json
-
+import re
 
 def getEntry() -> dict:
 	print("Discovering products...")

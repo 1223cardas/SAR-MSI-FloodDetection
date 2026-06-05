@@ -13,6 +13,8 @@ def processProducts(gptExec: list[str]) -> None:
     print("Starting product processing...")
     entry = getEntry()
 
+    # TODO: Add check for final product existence to skip processing if already done
+
     # 1. Process SNAP products to cache
     cachedProducts = runProcessing(entry, gptExec)
 

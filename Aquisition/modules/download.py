@@ -85,19 +85,15 @@ def downloadProducts(products: list[Product], session: OAuth2Session) -> list[Pa
 
 			print(f"Downloaded {prod.id} to {zip_path}")
 
-			# extract zip into product folder and remove zip
-			product_folder = output_dir / f"{prod.id}"
-			product_folder.mkdir(parents=True, exist_ok=True)
-
 			try:
+				print("Extracting zip", zip_path)
 				with zipfile.ZipFile(zip_path, 'r') as z:
-					z.extractall(product_folder)
-				print(f"Extracted {prod.id} into {product_folder}")
+					z.extractall(output_dir)
 				try:
 					zip_path.unlink()
 				except Exception:
 					pass
-				downloaded_productPaths.append(product_folder)
+				downloaded_productPaths.append(output_dir / prod.id)
 
 			except zipfile.BadZipFile:
 				print(f"Downloaded file for {prod.id} is not a valid zip archive; keeping {zip_path} for manual inspection.")
