@@ -49,12 +49,14 @@ class S2Processor(Processor):
     def run(self, run_processing: bool, view: bool) -> ProcessorResult:
         output_path = None
         if run_processing:
-            b3b, b8b, b3a, b8a = s2_discovery.auto_find_band_paths(self.imagens_dir)
+            b3b, b8b, scl_b, b3a, b8a, scl_a = s2_discovery.discover_all_band_pairs(self.imagens_dir)
             s2_pipeline.run_pipeline(
                 b3b,
                 b8b,
+                scl_b,
                 b3a,
                 b8a,
+                scl_a,
                 self.out_dir,
                 preview=self.preview,
                 threshold=self.threshold,

@@ -25,7 +25,7 @@ def read_raster(path):
     return data, profile
 
 
-def ensure_alignment(ref_src, src_path):
+def ensure_alignment(ref_src, src_path, resampling=Resampling.bilinear):
     with rasterio.open(src_path) as src:
         if (
             src.crs != ref_src.crs
@@ -33,7 +33,7 @@ def ensure_alignment(ref_src, src_path):
             or src.width != ref_src.width
             or src.height != ref_src.height
         ):
-            print(f"Reprojecting: {os.path.basename(src.name)}")
+            print(f"Reprojecting: {os.path.basename(src.name)} com método {resampling.name}")
 
             data = src.read(1)
             aligned = np.empty((ref_src.height, ref_src.width), dtype="float32")
@@ -45,7 +45,7 @@ def ensure_alignment(ref_src, src_path):
                 src_crs=src.crs,
                 dst_transform=ref_src.transform,
                 dst_crs=ref_src.crs,
-                resampling=Resampling.bilinear,
+                resampling=resampling,  # <--- Agora usa a variável dinâmica
             )
             return aligned
 

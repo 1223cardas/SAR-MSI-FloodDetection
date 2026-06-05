@@ -4,5 +4,6 @@ __all__ = [
 	"pipeline",
 	"preview",
 	"processing",
-	"raster_io"
+	"raster_io",
+    "pclasses"
 ]

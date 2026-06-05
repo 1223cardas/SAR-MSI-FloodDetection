@@ -73,7 +73,7 @@ def aquireEntryFromLog(entryType: list[str]) -> LogEntry | None:
 	entries: list[LogEntry] = load_search_log()
 	if not entries:
 		print("No log entries found. Running product acquisition to create a new log entry.")
-		entry = aquireProducts()
+		entry = aquireProducts(entryType[0])
 		if not entry:
 			print("Product acquisition failed. Exiting.")
 			return None
@@ -81,7 +81,12 @@ def aquireEntryFromLog(entryType: list[str]) -> LogEntry | None:
 	
 	if not any(entry.collection == entryType for entry in entries):
 		print("No log entries found for the specified product type.")
-		return None
+		entry = aquireProducts(entryType[0])
+		if not entry:
+			print("Product acquisition failed. Exiting.")
+			return None
+		return entry
+
 	
 	idx = printEntries(entries)
 	if idx == "": exit(0)
