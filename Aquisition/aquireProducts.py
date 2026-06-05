@@ -71,28 +71,33 @@ def aquireProducts(productType: str = "sentinel-1-grd") -> LogEntry:
 
 
 def aquireEntryFromLog(entryType: str) -> LogEntry | None:
-	entries: list[LogEntry] = load_search_log()
-	
-	if not entries:
-		print("No log entries found. Running product acquisition to create a new log entry.")
-		return aquireProducts(entryType)
-	
-	if not any(entry.collection == entryType for entry in entries):
-		print("No log entries found for the specified product type.")
-		return aquireProducts(entryType)
-	
-	idx = printEntries(entries, entryType)
-	if idx == "": exit(0)
-	
-	try:
-		selected_entry = entries[int(idx) - 1]
-	except (IndexError, ValueError):
-		print("Invalid choice. Exiting.")
-		return None
+    entries: list[LogEntry] = load_search_log()
+    
+    if not entries:
+        print("No log entries found. Running product acquisition to create a new log entry.")
+        return aquireProducts(entryType[0] if isinstance(entryType, list) else entryType)
+    
+    # Extrai a string real caso o entryType tenha vindo dentro de uma lista
+    actual_type = entryType[0] if isinstance(entryType, list) else entryType
+    
+    # Correção da comparação: agora compara string com string
+    if not any(entry.collection == actual_type for entry in entries):
+        print("No log entries found for the specified product type.")
+        return aquireProducts(actual_type)
+    
+    # Passa o tipo correto em formato string para a listagem
+    idx = printEntries(entries, actual_type)
+    if idx == "": exit(0)
+    
+    try:
+        selected_entry = entries[int(idx) - 1]
+    except (IndexError, ValueError):
+        print("Invalid choice. Exiting.")
+        return None
 
-	queueProductsForDownload(selected_entry.productFromIds())
+    queueProductsForDownload(selected_entry.productFromIds())
 
-	return selected_entry
+    return selected_entry
 
 
 def main():

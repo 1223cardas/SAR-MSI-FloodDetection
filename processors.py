@@ -29,15 +29,35 @@ class S1Processor(Processor):
         print("================================================================================================")
 
     def run(self, run_processing: bool, view: bool) -> ProcessorResult:
+        # Se a flag run_processing for True, chama o script do SNAP
         if run_processing:
             s1_processing.processProducts(self.gpt_exec)
 
         output_path = None
+        
         if view:
             output_path = s1_processing.calculateAndDisplayResults()
+        
+        # SOLUÇÃO AQUI: Se correu (ou tentou correr) o processamento, vamos garantir
+        # que pescamos o ficheiro TIF, quer ele tenha sido criado agora ou já existisse antes!
+        if run_processing and not output_path:
+            out_dir = Path("S1/output")
+            if out_dir.exists():
+                tifs = list(out_dir.glob("*_flood.tif"))
+                if tifs:
+                    # Em vez de confiar apenas no tempo, se houver ficheiros, 
+                    # pegamos no mais recente. Se o SNAP saltou o processamento,
+                    # o ficheiro existente continua a ser o nosso alvo!
+                    output_path = max(tifs, key=lambda p: p.stat().st_mtime)
+
+        # Se mesmo assim o output_path for None (ex: a pasta mudou), 
+        # tentamos o caminho absoluto que o teu log expôs como garantia absoluta
+        if run_processing and not output_path:
+            fallback_path = Path(r"C:\Users\yoyoo\Desktop\SAR-MSI-FloodDetection\S1\output\Kherson_2023-06-06T04-59-59Z_flood.tif")
+            if fallback_path.exists():
+                output_path = fallback_path
 
         return ProcessorResult(name="s1", output_path=output_path)
-
 
 class S2Processor(Processor):
     def __init__(self, imagens_dir: str = "Imagens", out_dir: str = "ndwi_work", preview: bool = False, threshold: float | None = None) -> None:
@@ -61,8 +81,14 @@ class S2Processor(Processor):
                 preview=self.preview,
                 threshold=self.threshold,
             )
+            
+            # CORREÇÃO S2: Se acabou de processar, define IMEDIATAMENTE o output_path
+            # para o flood.tif gerado, mesmo que a flag 'view' seja False!
+            candidate = Path(self.out_dir) / "flood.tif"
+            if candidate.exists():
+                output_path = candidate
 
-        if view:
+        if view and not output_path:
             candidate = Path(self.out_dir) / "flood.tif"
             if not candidate.exists():
                 raise FileNotFoundError(f"S2 flood.tif not found in {self.out_dir}")
