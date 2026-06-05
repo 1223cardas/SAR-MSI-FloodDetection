@@ -62,6 +62,7 @@ def water_mask(ndwi, threshold=NDWI_THRESHOLD):
 
 
 def flood_map(after, before):
+    """Gera a máscara binária base de inundação (1 = Nova inundação, 0 = Seco/Igual)"""
     return ((after == 1) & (before == 0)).astype("uint8")
 
 
@@ -69,3 +70,27 @@ def compute_binary_area(mask, transform):
     pixel_area = abs((transform.a * transform.e) - (transform.b * transform.d))
     water_pixels = int(np.count_nonzero(mask == 1))
     return water_pixels * pixel_area
+
+
+def compute_scl_confidence_mask(scl_data):
+    # Inicializa a matriz com 0.0 (Classes neutras ou sem dados: 0, 1, 7, 11)
+    confidence = np.zeros_like(scl_data, dtype=np.float32)
+
+    # 2.0 -> Certeza ótica de Água (Classe 6)
+    confidence[scl_data == 6] = 1.0
+
+    # 1.0 -> Zona Obstruída / Presença de Nuvens (Classes 3, 8, 9, 10)
+    confidence[
+        (scl_data == 3) | 
+        (scl_data == 8) | 
+        (scl_data == 9) | 
+        (scl_data == 10)
+    ] = 0.1
+
+    # 0.2 -> Suspeita de Sombra (Classe 2)
+    confidence[scl_data == 2] = 0.3
+
+    # 0.1 -> Suspeita de Falso Positivo / Solo Seco (Classes 4 e 5)
+    confidence[(scl_data == 4) | (scl_data == 5)] = 0.5
+
+    return confidence
