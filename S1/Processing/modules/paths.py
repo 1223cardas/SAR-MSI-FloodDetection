@@ -2,7 +2,6 @@ from pathlib import Path
 import glob
 import os
 import shutil
-import sys
 
 # define the paths variable to be used across modules
 paths: dict[str, Path] = {}
@@ -66,3 +65,18 @@ def build_cache_file(base_name: str) -> Path:
 
 def build_output_file(base_name: str) -> Path:
     return build_file(paths["out"], base_name)
+
+
+def checkEntryInOutput(entry: dict) -> str:
+    entry_naming = f"{entry.get("place_query")}_{str(entry.get("crisis_date")).replace(":", "-")}_flood"
+
+    expected_tif = build_output_file(entry_naming + ".tif")
+    expected_data = build_output_file(entry_naming + ".dim")
+    expected_dim = build_output_file(entry_naming + ".dim")
+
+    if all(p.exists() for p in [expected_tif, expected_data, expected_dim]):
+        print(f"\nFinal product already exists for this entry at: {expected_tif}")
+        print("Skipping processing for this entry.")
+        exit(0)
+        
+    return entry_naming

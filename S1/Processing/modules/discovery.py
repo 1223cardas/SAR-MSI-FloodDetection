@@ -10,7 +10,7 @@ import re
 
 def getEntry() -> dict:
 	print("Discovering products...")
-	csvEntry = aquireEntryFromLog([S1_COLLECTION_NAME])
+	csvEntry = aquireEntryFromLog(S1_COLLECTION_NAME)
 
 	if csvEntry is None:
 		raise FileNotFoundError(

@@ -18,9 +18,10 @@ def ellipsize(s: str, left: int = 15, right: int = 12, placeholder: str = '(...)
 
 
 
-def printEntries(entries: list[LogEntry]) -> str:
+def printEntries(entries: list[LogEntry], entryType: str) -> str:
 	while True:
 		for idx, entry in enumerate(entries, start=1):
+			if entry.collection == entryType:
 				print(f"\n[{idx}]:\tPlace: {entry.place_name}")
 				print(f" |\tCrisis Date: {entry.crisis_date}")
 				print(f" |\tBBox: {entry.bbox}")
@@ -34,10 +35,10 @@ def printEntries(entries: list[LogEntry]) -> str:
 		
 		if choice == '0':
 			print("Creating a new log entry.")
-			aquireProducts()
-			return printEntries(load_search_log())
-
-		try:	
+			aquireProducts(entryType)
+			return printEntries(load_search_log(), entryType)
+		
+		try:
 			if int(choice) not in range(1, len(entries) + 1):
 				print("Invalid choice. Try again.")
 				continue
@@ -49,7 +50,7 @@ def printEntries(entries: list[LogEntry]) -> str:
 
 
 def aquireProducts(productType: str = "sentinel-1-grd") -> LogEntry:
-	entry = LogEntry(collection=[productType])
+	entry = LogEntry(collection=productType)
 
 	# Set place_query, place_name, bbox
 	getRegion(entry)
@@ -69,26 +70,18 @@ def aquireProducts(productType: str = "sentinel-1-grd") -> LogEntry:
 	return entry
 
 
-def aquireEntryFromLog(entryType: list[str]) -> LogEntry | None:
+def aquireEntryFromLog(entryType: str) -> LogEntry | None:
 	entries: list[LogEntry] = load_search_log()
+	
 	if not entries:
 		print("No log entries found. Running product acquisition to create a new log entry.")
-		entry = aquireProducts(entryType[0])
-		if not entry:
-			print("Product acquisition failed. Exiting.")
-			return None
-		return entry
+		return aquireProducts(entryType)
 	
 	if not any(entry.collection == entryType for entry in entries):
 		print("No log entries found for the specified product type.")
-		entry = aquireProducts(entryType[0])
-		if not entry:
-			print("Product acquisition failed. Exiting.")
-			return None
-		return entry
-
+		return aquireProducts(entryType)
 	
-	idx = printEntries(entries)
+	idx = printEntries(entries, entryType)
 	if idx == "": exit(0)
 	
 	try:

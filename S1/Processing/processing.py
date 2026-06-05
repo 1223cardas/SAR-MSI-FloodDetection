@@ -2,7 +2,7 @@ from S1.Processing.modules.discovery import getEntry, getFloodDataFile
 from S1.Processing.modules.pipeline import runProcessing, runStacking, runMaskCreation, convertFloodToTif
 from S1.Processing.modules.product_utils import get_band_file
 from S1.Processing.modules.raster_utils import computeFloodArea, displayResults
-from S1.Processing.modules.paths import build_output_file
+from S1.Processing.modules.paths import build_output_file, checkEntryInOutput
 from S1.Processing.modules.pclasses import ProductData
 from S1.Processing.modules.snap import getExecutable
 
@@ -14,6 +14,7 @@ def processProducts(gptExec: list[str]) -> None:
     entry = getEntry()
 
     # TODO: Add check for final product existence to skip processing if already done
+    output_naming = checkEntryInOutput(entry)
 
     # 1. Process SNAP products to cache
     cachedProducts = runProcessing(entry, gptExec)
@@ -22,10 +23,10 @@ def processProducts(gptExec: list[str]) -> None:
     dimStack_file = runStacking(cachedProducts, gptExec)
 
     # 3. Create flood mask product
-    dimFlood_file = runMaskCreation(dimStack_file, gptExec)
+    dimFlood_file = runMaskCreation(dimStack_file, output_naming, gptExec)
 
     # 4. Save flood as tif to fuse with S2 results
-    convertFloodToTif(dimFlood_file, gptExec)
+    convertFloodToTif(dimFlood_file, output_naming, gptExec)
 
     print("Product processing complete.\n")
 

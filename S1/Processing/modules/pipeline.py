@@ -101,9 +101,8 @@ def runStacking(cached_products: list[Product], gptExec: list[str]) -> Path:
     return dimStack_file
 
 
-def runMaskCreation(dimStack_file: Path, gptExec: list[str]) -> Path:
-    date = dimStack_file.stem.replace("stack_", "")
-    result = build_output_file("flood_" + date)
+def runMaskCreation(dimStack_file: Path, namingScheme: str, gptExec: list[str]) -> Path:
+    result = build_output_file(namingScheme)
     dimFlood_file = Path(str(result) + ".dim")
 
     print("Creating flood mask...")
@@ -142,8 +141,8 @@ def runMaskCreation(dimStack_file: Path, gptExec: list[str]) -> Path:
     return dimFlood_file
 
 
-def convertFloodToTif(flood_dim: Path, gptExec: list[str]) -> Path:
-    tif_path = build_output_file(f"{flood_dim.stem}.tif")
+def convertFloodToTif(flood_dim: Path, namingScheme: str, gptExec: list[str]) -> Path:
+    tif_path = build_output_file(f"{namingScheme}.tif")
 
     print("Saving flood product to TIFF...")
     if tif_path.exists():

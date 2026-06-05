@@ -11,7 +11,7 @@ def requestProducts(entry: LogEntry, productType: str) -> list[Product]:
 		"bbox": entry.bbox,
 		"datetime": entry.date_range,
 		"collections": [productType],
-		"limit": aquisition_config.DEFAULT_SEARCH_LIMIT,
+		"limit": aquisition_config.DEFAULT_SEARCH_LIMIT
 	}
 
 	session = initSHSession()

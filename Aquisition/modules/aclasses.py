@@ -19,7 +19,7 @@ class searchParams:
 
 @dataclass
 class LogEntry:
-	collection: list[str] = field(default_factory=list)
+	collection: str = ""
 	place_query: str = ""
 	place_name: str = ""
 	bbox: list[float] = field(default_factory=list)
@@ -32,7 +32,7 @@ class LogEntry:
 	@classmethod
 	def from_csv_row(cls, row):
 		return cls(
-			collection=json.loads(row.get("collection", "[]")),
+			collection=row.get("collection", "[]"),
 			place_query=row.get("place_query", ""),
 			place_name=row.get("place_name", ""),
 			bbox=json.loads(row.get("bbox") or "[]"),
@@ -44,7 +44,7 @@ class LogEntry:
 	
 	def to_dict(self):
 		return {
-			"collection": json.dumps(self.collection),
+			"collection": self.collection,
 			"place_query": self.place_query,
 			"place_name": self.place_name,
 			"bbox": json.dumps(self.bbox),
