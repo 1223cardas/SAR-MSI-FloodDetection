@@ -31,7 +31,7 @@ def build_parser():
 
     # Pipeline de Fusão Isolada
     fusion = sub.add_parser("fusion", help="Sentinel-1 and Sentinel-2 Data Fusion pipeline")
-    fusion.add_argument("--s1-tif", required=True, help="Path to Sentinel-1 flood binary water mask TIF")
+    fusion.add_argument("--s1-tif", default="S1/output/Kherson_2026-06-06_15-17-32_flood.tif", help="Path to Sentinel-1 flood binary water mask TIF")
     fusion.add_argument("--s2-tif", default="ndwi_work/flood.tif", help="Path to Sentinel-2 flood SCL-weighted TIF")
     fusion.add_argument("--out-tif", default="flood_fused_continuous.tif", help="Path for the final output TIF")
 
