@@ -33,9 +33,7 @@ class S1Processor(Processor):
     def run(self, run_processing: bool, view: bool) -> ProcessorResult:
         # Se a flag run_processing for True, chama o script do SNAP
         if run_processing:
-            s1_processing.processProducts(self.gpt_exec)
-
-        output_path = None
+            output_path = s1_processing.processProducts(self.gpt_exec)
         
         if view:
             output_path = s1_processing.calculateAndDisplayResults()

@@ -10,12 +10,14 @@ from .modules.snap import getExecutable
 from pathlib import Path
 import rasterio
 
-def processProducts(gptExec: list[str]) -> None:
+def processProducts(gptExec: list[str]) -> Path:
     print("Starting product processing...")
     entry = getEntry()
 
-    # TODO: Add check for final product existence to skip processing if already done
-    output_naming, processed_at = checkEntryInOutput(entry)
+    output_naming, processed_at, existing_tif = checkEntryInOutput(entry)
+    if existing_tif is not None:
+        return existing_tif
+
     updateLogEntry(entry, {"processed_at": processed_at})
 
     # 1. Process SNAP products to cache
@@ -28,11 +30,11 @@ def processProducts(gptExec: list[str]) -> None:
     dimFlood_file = runMaskCreation(dimStack_file, output_naming, gptExec)
 
     # 4. Save flood as tif to fuse with S2 results
-    convertFloodToTif(dimFlood_file, output_naming, gptExec)
+    tif_path = convertFloodToTif(dimFlood_file, output_naming, gptExec)
 
     print("Product processing complete.\n")
 
-    return
+    return tif_path
 
 
 def calculateAndDisplayResults() -> Path:

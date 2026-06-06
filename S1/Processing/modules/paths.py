@@ -68,18 +68,19 @@ def build_output_file(base_name: str) -> Path:
     return build_file(paths["out"], base_name)
 
 
-def checkEntryInOutput(entry: dict) -> tuple[str, str]:
+def checkEntryInOutput(entry: dict) -> tuple[str, str, Path | None]:
     dt_str = format(datetime.now(), '%Y-%m-%d_%H-%M-%S')
-    date = entry.get("processed_at", dt_str)
-    entry_naming = f"{entry.get("place_query")}_{date}_flood"
+    stored_date: str = entry.get("processed_at", "")
+
+    date = stored_date if stored_date != "" else dt_str
+    entry_naming = f"{entry.get('place_query')}_{date}_flood"
 
     expected_tif = build_output_file(entry_naming + ".tif")
     expected_data = build_output_file(entry_naming + ".dim")
     expected_dim = build_output_file(entry_naming + ".dim")
 
     if all(p.exists() for p in [expected_tif, expected_data, expected_dim]):
-        print(f"\nFinal product already exists for this entry at: {expected_tif}")
         print("Skipping processing for this entry.")
-        exit(0)
-        
-    return entry_naming, date
+        return entry_naming, date, expected_tif
+
+    return entry_naming, date, None
