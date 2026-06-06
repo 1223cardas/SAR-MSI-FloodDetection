@@ -1,16 +1,17 @@
-from S1.Processing.modules.s1processing_config import S1_COLLECTION_NAME
-from S1.Processing.modules.utils import extractDateFromProduct
-from S1.Processing.modules.pclasses import Product
-from S1.Processing.modules.paths import paths
-from Aquisition.aquireProducts import aquireEntryFromLog
-from mainconfig import OUTPUT_DIR
 from pathlib import Path
 import json
-import re
+
+from Acquisition.acquireProducts import acquireEntryFromLog
+from .s1processing_config import S1_COLLECTION_NAME
+from .utils import extractDateFromProduct, choose_from_list
+from .pclasses import Product
+from .paths import paths
+from mainconfig import OUTPUT_DIR
+
 
 def getEntry() -> dict:
 	print("Discovering products...")
-	csvEntry = aquireEntryFromLog(S1_COLLECTION_NAME)
+	csvEntry = acquireEntryFromLog(S1_COLLECTION_NAME)
 
 	if csvEntry is None:
 		raise FileNotFoundError(
@@ -109,46 +110,3 @@ def getFloodDataFile() -> Path:
 	)
 
 	return option[0]
-
-def choose_from_list(items: list[Path], select_count: int, prompt: str | None = None) -> list[Path]:
-    """
-    Prompt the user to select one or more items from a list of Path objects.
-    Returns a list of the selected Path objects (length == select_count).
-    """
-    if not items:
-        raise ValueError("No items available to select from.")
-
-    if len(items) == select_count:
-        return items
-
-    if prompt:
-        print(prompt)
-
-    for i, item in enumerate(items, start=1):
-        print(f"\t[{i}] {item.name}")
-
-    while True:
-        inp = input(
-            f"Enter {select_count} number{'s' if select_count != 1 else ''} separated by a comma (e.g. 1{',2' if select_count>1 else ''}): "
-        ).strip()
-        parts = re.split(r"\s*,\s*", inp)
-
-        if len(parts) != select_count:
-            print(f"Please enter exactly {select_count} number{'s' if select_count != 1 else ''}.")
-            continue
-
-        try:
-            idxs = [int(p) for p in parts]
-        except ValueError:
-            print("Invalid input. Use numbers like '1' or '1,2'.")
-            continue
-
-        if any(i not in range(1, len(items) + 1) for i in idxs):
-            print("One or more numbers are out of range. Try again.")
-            continue
-
-        if len(set(idxs)) != len(idxs):
-            print("Duplicate selection detected. Please choose distinct items.")
-            continue
-
-        return [items[i - 1] for i in idxs]

@@ -4,10 +4,10 @@ from dotenv import load_dotenv
 import requests
 import os
 
-from Aquisition.modules.aquisition_config import TOKEN_URL
-
+from .aquisition_config import TOKEN_URL
 
 load_dotenv()
+
 
 def getSHCredentials():
 	client_id = os.getenv('SH_CLIENT_ID', '')

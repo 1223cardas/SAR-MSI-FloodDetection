@@ -7,7 +7,9 @@ from S2 import pipeline as s2_pipeline
 from S2 import preview as s2_preview
 
 from S1.Processing import processing as s1_processing
-from S1.Processing.modules import check_directories, getExecutable
+from S1.Processing import snap, paths
+
+from mainconfig import OUTPUT_DIR
 
 @dataclass
 class ProcessorResult:
@@ -24,8 +26,8 @@ class Processor(ABC):
 class S1Processor(Processor):
     def __init__(self) -> None:
         print("================================================================================================")
-        self.paths = check_directories()
-        self.gpt_exec = getExecutable()
+        self.paths = paths.check_directories()
+        self.gpt_exec = snap.getExecutable()
         print("================================================================================================")
 
     def run(self, run_processing: bool, view: bool) -> ProcessorResult:
@@ -69,18 +71,9 @@ class S2Processor(Processor):
     def run(self, run_processing: bool, view: bool) -> ProcessorResult:
         output_path = None
         if run_processing:
-            b3b, b8b, scl_b, b3a, b8a, scl_a = s2_discovery.discover_all_band_pairs(self.imagens_dir)
-            s2_pipeline.run_pipeline(
-                b3b,
-                b8b,
-                scl_b,
-                b3a,
-                b8a,
-                scl_a,
-                self.out_dir,
-                preview=self.preview,
-                threshold=self.threshold,
-            )
+            # Get bands b3, b8, scl from before and after products
+            before, after = s2_discovery.discover_all_band_pairs(self.imagens_dir)
+            s2_pipeline.run_pipeline(before, after, self.out_dir, preview=self.preview, threshold=self.threshold)
             
             # CORREÇÃO S2: Se acabou de processar, define IMEDIATAMENTE o output_path
             # para o flood.tif gerado, mesmo que a flag 'view' seja False!

@@ -1,12 +1,13 @@
 from requests_oauthlib import OAuth2Session
 from pathlib import Path
 from tqdm import tqdm
-
-from Aquisition.modules.aclasses import Product
-from Aquisition.modules.authsession import initCDSESession
-from Aquisition.modules import aquisition_config
-from mainconfig import input, OUTPUT_DIR
 import zipfile
+
+from mainconfig import input, OUTPUT_DIR
+from .authsession import initCDSESession
+from .aclasses import Product
+from . import aquisition_config
+
 
 def checkIfDownloaded(products: list[Product]) -> list[Path]:
 	product_paths = []

@@ -1,10 +1,11 @@
-from S1.Processing.modules.discovery import getEntry, getFloodDataFile
-from S1.Processing.modules.pipeline import runProcessing, runStacking, runMaskCreation, convertFloodToTif
-from S1.Processing.modules.product_utils import get_band_file
-from S1.Processing.modules.raster_utils import computeFloodArea, displayResults
-from S1.Processing.modules.paths import build_output_file, checkEntryInOutput
-from S1.Processing.modules.pclasses import ProductData
-from S1.Processing.modules.snap import getExecutable
+from Acquisition.modules.search_log import updateLogEntry
+from .modules.discovery import getEntry, getFloodDataFile
+from .modules.pipeline import runProcessing, runStacking, runMaskCreation, convertFloodToTif
+from .modules.product_utils import get_band_file
+from .modules.raster_utils import computeFloodArea, displayResults
+from .modules.paths import build_output_file, checkEntryInOutput
+from .modules.pclasses import ProductData
+from .modules.snap import getExecutable
 
 from pathlib import Path
 import rasterio
@@ -14,7 +15,8 @@ def processProducts(gptExec: list[str]) -> None:
     entry = getEntry()
 
     # TODO: Add check for final product existence to skip processing if already done
-    output_naming = checkEntryInOutput(entry)
+    output_naming, processed_at = checkEntryInOutput(entry)
+    updateLogEntry(entry, {"processed_at": processed_at})
 
     # 1. Process SNAP products to cache
     cachedProducts = runProcessing(entry, gptExec)

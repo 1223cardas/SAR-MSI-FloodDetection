@@ -1,9 +1,9 @@
 from requests_oauthlib import OAuth2Session
 from shapely.geometry import shape, box
 
-from Aquisition.modules.authsession import initSHSession
-from Aquisition.modules.aclasses import Product, LogEntry
-from Aquisition.modules import aquisition_config
+from .authsession import initSHSession
+from .aclasses import Product, LogEntry
+from . import aquisition_config
 
 
 def requestProducts(entry: LogEntry, productType: str) -> list[Product]:

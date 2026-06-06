@@ -1,40 +1,32 @@
 import os
 import rasterio
-import numpy as np
 from rasterio.enums import Resampling
 
-from S2.config import NODATA_VALUE
-from S2.preview import save_preview_png, show_preview_window
-from S2.processing import (
-    compute_binary_area,
-    compute_ndwi,
-    compute_optimal_threshold,
-    flood_map,
-    water_mask,
-    compute_scl_confidence_mask,  # Importado com sucesso
-)
-from S2.raster_io import debug, ensure_alignment, prepare_workspace, stats, write_raster
+from .config import NODATA_VALUE
+from .preview import save_preview_png, show_preview_window
+from .processing import compute_binary_area, compute_ndwi, compute_optimal_threshold, flood_map, water_mask, compute_scl_confidence_mask
+from .raster_io import debug, ensure_alignment, prepare_workspace, stats, write_raster
 
 
 def _print_area(label, area_m2):
     print(f"{label}: {area_m2:,.2f} m2 ({area_m2 / 1_000_000.0:,.4f} km2)")
 
 
-def run_pipeline(b3b_path, b8b_path, sclb_path, b3a_path, b8a_path, scla_path, work, preview=False, threshold=None):
+def run_pipeline(before, after, work, preview=False, threshold=None):
     prepare_workspace(work)
 
-    with rasterio.open(b3b_path) as ref_src:
+    with rasterio.open(before.b3) as ref_src:
         b3b_data = ref_src.read(1).astype("float32")
         profile = ref_src.profile.copy()
 
         # Alinhamento das bandas normais de 10m (usam Bilinear por padrão)
-        b8b_data = ensure_alignment(ref_src, b8b_path)
-        b3a_data = ensure_alignment(ref_src, b3a_path)
-        b8a_data = ensure_alignment(ref_src, b8a_path)
+        b8b_data = ensure_alignment(ref_src, before.b8)
+        b3a_data = ensure_alignment(ref_src, after.b3)
+        b8a_data = ensure_alignment(ref_src, after.b8)
         
         # Alinhamento e Resampling das bandas SCL (Força o Nearest Neighbor para manter integridade das classes)
-        sclb_data = ensure_alignment(ref_src, sclb_path, resampling=Resampling.nearest)
-        scla_data = ensure_alignment(ref_src, scla_path, resampling=Resampling.nearest)
+        sclb_data = ensure_alignment(ref_src, before.scl, resampling=Resampling.nearest)
+        scla_data = ensure_alignment(ref_src, after.scl, resampling=Resampling.nearest)
 
     print("\nShapes:")
     print(f"B3B: {b3b_data.shape} | B8B: {b8b_data.shape} | B3A: {b3a_data.shape} | B8A: {b8a_data.shape}")

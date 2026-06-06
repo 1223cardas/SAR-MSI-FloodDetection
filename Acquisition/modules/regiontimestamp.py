@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
-from Aquisition.modules.aclasses import TimeFrame, LogEntry
-from Aquisition.modules import aquisition_config
+from .aclasses import TimeFrame, LogEntry
+from . import aquisition_config
 from mainconfig import input
 
 

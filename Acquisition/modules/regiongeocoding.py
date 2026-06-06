@@ -1,8 +1,8 @@
 from geopy.geocoders import Nominatim
 import math
 
-from Aquisition.modules.aclasses import Place, BBox, LogEntry
-from Aquisition.modules import aquisition_config
+from .aclasses import Place, BBox, LogEntry
+from . import aquisition_config
 from mainconfig import input
 
 

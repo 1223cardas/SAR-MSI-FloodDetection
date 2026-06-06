@@ -1,6 +1,5 @@
 import os
 import shutil
-
 import numpy as np
 import rasterio
 from rasterio.warp import Resampling, reproject

@@ -25,5 +25,6 @@ CSV_FIELDNAMES = [
 	"crisis_date",
 	"date_range",
 	"beforeId",
-	"afterId"
+	"afterId",
+	"processed_at"
 ]

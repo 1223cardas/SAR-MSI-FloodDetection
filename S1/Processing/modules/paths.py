@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 import glob
 import os
@@ -41,10 +42,10 @@ def check_directories() -> dict[str, Path]:
 
     for d in paths.values():
         if not d.exists():
-            print(f"\n|\t{d} doesn't exist. Creating directory...", end="")
+            print(f"\n|\t{d} doesn't exist. Creating directory...")
             d.mkdir(parents=True, exist_ok=True)
 
-    print("\nDone.")
+    print("Done.")
     return paths
 
 
@@ -67,8 +68,10 @@ def build_output_file(base_name: str) -> Path:
     return build_file(paths["out"], base_name)
 
 
-def checkEntryInOutput(entry: dict) -> str:
-    entry_naming = f"{entry.get("place_query")}_{str(entry.get("crisis_date")).replace(":", "-")}_flood"
+def checkEntryInOutput(entry: dict) -> tuple[str, str]:
+    dt_str = format(datetime.now(), '%Y-%m-%d_%H-%M-%S')
+    date = entry.get("processed_at", dt_str)
+    entry_naming = f"{entry.get("place_query")}_{date}_flood"
 
     expected_tif = build_output_file(entry_naming + ".tif")
     expected_data = build_output_file(entry_naming + ".dim")
@@ -79,4 +82,4 @@ def checkEntryInOutput(entry: dict) -> str:
         print("Skipping processing for this entry.")
         exit(0)
         
-    return entry_naming
+    return entry_naming, date

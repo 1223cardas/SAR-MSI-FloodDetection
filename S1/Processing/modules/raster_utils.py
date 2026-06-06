@@ -5,8 +5,8 @@ import rasterio
 from rasterio.transform import array_bounds
 from skimage.filters import threshold_otsu
 
-from S1.Processing.modules.pclasses import ProductData
-from S1.Processing.modules.product_utils import get_band_file
+from .pclasses import ProductData
+from .product_utils import get_band_file
 
 
 def compute_water_elevation_p95(data_file: Path, vars: list[str], water_class: int = 80) -> float:

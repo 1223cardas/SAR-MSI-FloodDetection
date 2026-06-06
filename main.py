@@ -3,16 +3,12 @@ import logging
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 from processors import S1Processor, S2Processor
 from Combined.combine import fuse_flood_outputs
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("sar_msi")
-
-load_dotenv()
 
 
 def build_parser():
@@ -129,7 +125,7 @@ def main():
                         print(f"\n[s1] detetado ficheiro existente: {temp_found_path.name}")
                         resposta = input("Desejas usar este resultado do Sentinel-1 e saltar o processamento? (y/n): ").strip().lower()
                         
-                        if resposta in ["y", "yes", "s", "sim", ""]:
+                        if resposta.lower() in ["y", "yes", "s", "sim", ""]:
                             s1_path = temp_found_path
                             logger.info("[s1 skip] a usar o ficheiro existente por decisão do utilizador.")
                         else:
@@ -160,7 +156,7 @@ def main():
 
                 if not s1_path or not Path(s1_path).exists():
                     raise ValueError("Não foi possível determinar o ficheiro de output do S1 para a fusão.")
-                    
+                
                 logger.info("[s1 sucesso] caminho do radar fixado: %s", s1_path)
                 
             except Exception:

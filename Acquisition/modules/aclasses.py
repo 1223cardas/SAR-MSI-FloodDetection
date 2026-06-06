@@ -27,6 +27,7 @@ class LogEntry:
 	date_range: str = ""
 	beforeId: str = ""
 	afterId: str = ""
+	processed_at: str = ""
 
 
 	@classmethod
@@ -39,7 +40,8 @@ class LogEntry:
 			crisis_date=row.get("crisis_date", ""),
 			date_range=row.get("date_range", ""),
 			beforeId=row.get("beforeId", ""),
-			afterId=row.get("afterId", "")
+			afterId=row.get("afterId", ""),
+			processed_at=row.get("processed_at", "")
 		)
 	
 	def to_dict(self):
@@ -51,8 +53,23 @@ class LogEntry:
 			"crisis_date": self.crisis_date,
 			"date_range": self.date_range,
 			"beforeId": self.beforeId,
-			"afterId": self.afterId
+			"afterId": self.afterId,
+			"processed_at": self.processed_at
 		}
+	
+	@classmethod
+	def to_entry(cls, entryDict: dict):
+		return cls(
+			collection=entryDict.get("collection", "[]"),
+			place_query=entryDict.get("place_query", ""),
+			place_name=entryDict.get("place_name", ""),
+			bbox=json.loads(entryDict.get("bbox") or "[]"),
+			crisis_date=entryDict.get("crisis_date", ""),
+			date_range=entryDict.get("date_range", ""),
+			beforeId=entryDict.get("beforeId", ""),
+			afterId=entryDict.get("afterId", ""),
+			processed_at=entryDict.get("processed_at", "")
+		)
 
 	def productFromIds(self):
 		return [Product(id=self.beforeId), Product(id=self.afterId)]

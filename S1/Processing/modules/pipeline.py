@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from S1.Processing.modules.pclasses import Product
-from S1.Processing.modules.paths import build_cache_file, build_output_file
-from S1.Processing.modules.discovery import discoverProducts, discoverAOI, getWorkflow, getProductFile
-from S1.Processing.modules.snap import execute_command
-from S1.Processing.modules.product_utils import computeWorkflowVariables, refactor_snap_product
-from S1.Processing.modules.raster_utils import compute_water_elevation_p95, compute_otsu_threshold_vh_diff, compute_otsu_threshold_vv_diff
+from .pclasses import Product
+from .paths import build_cache_file, build_output_file
+from .discovery import discoverProducts, discoverAOI, getWorkflow, getProductFile
+from .snap import execute_command
+from .product_utils import computeWorkflowVariables, refactor_snap_product
+from .raster_utils import compute_water_elevation_p95, compute_otsu_threshold_vh_diff, compute_otsu_threshold_vv_diff
 
 
 def runProcessing(entry: dict, gptExec: list[str]) -> list[Product]:

@@ -1,11 +1,7 @@
 import numpy as np
 
-from S2.config import EPS, NDWI_THRESHOLD, NODATA_VALUE, SCALE_FACTOR
-
-try:
-    from skimage.filters import threshold_otsu
-except Exception:
-    threshold_otsu = None
+from .config import EPS, NDWI_THRESHOLD, NODATA_VALUE, SCALE_FACTOR
+from skimage.filters import threshold_otsu
 
 
 def compute_ndwi(green_band, nir_band):
