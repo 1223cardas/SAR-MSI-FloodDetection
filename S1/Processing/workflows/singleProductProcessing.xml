@@ -59,8 +59,8 @@
       <sourceProduct refid="Calibration"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands/>
-      <filter>Lee</filter>
+      <sourceBands>Sigma0_VH,Sigma0_VV</sourceBands>
+      <filter>Refined Lee</filter>
       <filterSizeX>7</filterSizeX>
       <filterSizeY>7</filterSizeY>
       <dampingFactor>2</dampingFactor>
@@ -79,8 +79,8 @@
       <sourceProduct refid="Speckle-Filter"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <sourceBands/>
-      <demName>SRTM 3Sec</demName>
+      <sourceBands>Sigma0_VH,Sigma0_VV</sourceBands>
+      <demName>Copernicus 30m Global DEM</demName>
       <externalDEMFile/>
       <externalDEMNoDataValue>0.0</externalDEMNoDataValue>
       <externalDEMApplyEGM>true</externalDEMApplyEGM>
@@ -99,7 +99,7 @@
       <alignToStandardGrid>false</alignToStandardGrid>
       <standardGridOriginX>0.0</standardGridOriginX>
       <standardGridOriginY>0.0</standardGridOriginY>
-      <nodataValueAtSea>true</nodataValueAtSea>
+      <nodataValueAtSea>false</nodataValueAtSea>
       <saveDEM>false</saveDEM>
       <saveLatLon>false</saveLatLon>
       <saveIncidenceAngleFromEllipsoid>false</saveIncidenceAngleFromEllipsoid>

@@ -23,3 +23,13 @@ class ProductData:
     crs: rasterio.CRS | None
     height: int
     width: int
+
+
+@dataclass
+class StackBands:
+    vh_mst: str = ""
+    vv_mst: str = ""
+    vh_slv: str = ""
+    vv_slv: str = ""
+    elevation: str = ""
+    land_cover: str = ""

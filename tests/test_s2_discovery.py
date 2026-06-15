@@ -1,6 +1,5 @@
 from S2 import discovery
 
-
 def _make_pair(tile, safe_name, date_token):
     base = f"{tile}_{date_token}_B03_10m.jp2"
     return {
@@ -27,9 +26,9 @@ def test_auto_find_band_paths_noninteractive_uses_same_tile(monkeypatch):
     monkeypatch.setattr(discovery, "_discover_all_band_pairs", lambda imagens_dir: pairs)
     monkeypatch.setattr(discovery.os, "isatty", lambda fd: False)
 
-    b3_before, b8_before, b3_after, b8_after = discovery.auto_find_band_paths("ignored", interactive=True)
+    bef, aft = discovery.discover_all_band_pairs("ignored")
 
-    assert _tile_from_path(b3_before) == _tile_from_path(b3_after)
-    assert _tile_from_path(b8_before) == _tile_from_path(b8_after)
-    assert "20230603T084559" in b3_before
-    assert "20230618T084601" in b3_after
+    assert _tile_from_path(bef.b3) == _tile_from_path(aft.b3)
+    assert _tile_from_path(bef.b8) == _tile_from_path(aft.b8)
+    assert "20230603T084559" in bef.b3
+    assert "20230618T084601" in aft.b3

@@ -8,9 +8,7 @@ from mainconfig import input
 def prompt_crisis_date() -> str:
 	while True:
 		crisis_date = input(
-			"Insert crisis date (YYYY-MM-DD or YYYY-MM-DD-hh):",
-			expected_type=str
-			)
+			"Insert crisis date (YYYY-MM-DD or YYYY-MM-DD-hh):")
 		
 		# Try parsing with hour first: YYYY-MM-DD-HH
 		try:

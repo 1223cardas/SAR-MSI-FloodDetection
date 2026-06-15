@@ -7,6 +7,26 @@ import shutil
 # define the paths variable to be used across modules
 paths: dict[str, Path] = {}
 
+
+def ensureDirsExist():
+    for d in paths.values():
+        if not d.exists():
+            print(f"\n|\t{d} doesn't exist. Creating directory...")
+            d.mkdir(parents=True, exist_ok=True)
+
+
+def cleanupProcessingInCache():
+    if paths["cache"].exists():
+        for f in glob.glob(str(paths["cache"] / "*_PROCESSING.*")):
+            try:
+                if os.path.isfile(f):
+                    os.remove(f)
+                elif os.path.isdir(f):
+                    shutil.rmtree(f)
+            except Exception as e:
+                print(f"|\tWarning: Could not delete {f}. Reason: {e}")
+
+
 def check_directories() -> dict[str, Path]:
     """Check and create necessary directories, and return a dictionary of the paths."""
     print("Checking directories...", end=" ")
@@ -29,24 +49,17 @@ def check_directories() -> dict[str, Path]:
         }
     )
 
-    # Clean cache directory
-    if paths["cache"].exists():
-        for f in glob.glob(str(paths["cache"] / "*_PROCESSING.*")):
-            try:
-                if os.path.isfile(f):
-                    os.remove(f)
-                elif os.path.isdir(f):
-                    shutil.rmtree(f)
-            except Exception as e:
-                print(f"|\tWarning: Could not delete {f}. Reason: {e}")
-
-    for d in paths.values():
-        if not d.exists():
-            print(f"\n|\t{d} doesn't exist. Creating directory...")
-            d.mkdir(parents=True, exist_ok=True)
+    cleanupProcessingInCache()
+    ensureDirsExist()
 
     print("Done.")
     return paths
+
+
+def cleanupTIFSInCache():
+    if paths["cache"].exists():
+        for f in glob.glob(str(paths["cache"] / "*.tif")):
+            os.remove(f)
 
 
 def build_file(dir_path: Path, base_name: str) -> Path:

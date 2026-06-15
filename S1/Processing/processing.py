@@ -1,11 +1,10 @@
 from Acquisition.modules.search_log import updateLogEntry
-from .modules.discovery import getEntry, getFloodDataFile
-from .modules.pipeline import runProcessing, runStacking, runMaskCreation, convertFloodToTif
-from .modules.product_utils import get_band_file
-from .modules.raster_utils import computeFloodArea, displayResults
-from .modules.paths import build_output_file, checkEntryInOutput
+from .modules.pipeline import *
 from .modules.pclasses import ProductData
-from .modules.snap import getExecutable
+from .modules.product_utils import get_band_file
+from .modules.discovery import getEntry, getFloodDataFile
+from .modules.raster_utils import computeFloodArea, displayResults
+from .modules.paths import build_output_file, checkEntryInOutput, cleanupTIFSInCache
 
 from pathlib import Path
 import rasterio
@@ -30,9 +29,10 @@ def processProducts(gptExec: list[str]) -> Path:
     dimFlood_file = runMaskCreation(dimStack_file, output_naming, gptExec)
 
     # 4. Save flood as tif to fuse with S2 results
-    tif_path = convertFloodToTif(dimFlood_file, output_naming, gptExec)
+    tif_path = convertFloodToTif(dimFlood_file, output_naming)
 
     print("Product processing complete.\n")
+    cleanupTIFSInCache()
 
     return tif_path
 
@@ -69,10 +69,10 @@ def calculateAndDisplayResults() -> Path:
     return data_path
 
 
-def main():
-    processProducts(gptExec=getExecutable())
-    calculateAndDisplayResults()
+# def main():
+#     processProducts(gptExec=getExecutable())
+#     calculateAndDisplayResults()
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()

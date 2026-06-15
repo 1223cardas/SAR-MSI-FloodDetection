@@ -104,9 +104,9 @@ def getFloodDataFile() -> Path:
 		raise FileNotFoundError("No .dim files found in the output directory.")
 	
 	option = choose_from_list(
-		data_files,
+		[p.with_suffix("") for p in data_files],
 		select_count=1,
-		prompt="Multiple .dim files found. Please select the one corresponding to the flood mask:"
+		prompt="Multiple files found. Please select one to see results:"
 	)
 
-	return option[0]
+	return option[0].with_suffix(".data")

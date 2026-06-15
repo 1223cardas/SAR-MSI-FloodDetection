@@ -1,62 +1,190 @@
 <graph id="Graph">
   <version>1.0</version>
-  <node id="Read">
+  <node id="ReadStack">
     <operator>Read</operator>
     <sources/>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <useAdvancedOptions>false</useAdvancedOptions>
       <file>${product}</file>
       <copyMetadata>true</copyMetadata>
-      <bandNames/>
-      <maskNames/>
     </parameters>
   </node>
-  <node id="BandMaths">
+  <node id="ReadVHThreshold">
+    <operator>Read</operator>
+    <sources/>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <useAdvancedOptions>false</useAdvancedOptions>
+      <file>${vh_threshold_tif}</file>
+      <copyMetadata>false</copyMetadata>
+    </parameters>
+  </node>
+  <node id="RenameVH">
     <operator>BandMaths</operator>
     <sources>
-      <sourceProduct.2 refid="Read"/>
+      <sourceProduct refid="ReadVHThreshold"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <targetBands>
         <targetBand>
-          <name>Flood</name>
+          <name>otsu_vh_threshold</name>
           <type>float32</type>
-          <expression>
-            if ${hasDataAtPixel} 
-              AND land_cover_ESA_WorldCover != 80
-              AND elevation &lt; ${elev_threshold}
-              AND ${vh_diff} &lt; ${otsu_vh_threshold}
-              AND (${vv_diff} &lt; ${otsu_vv_threshold} OR ${vh_diff} &lt; (${otsu_vh_threshold} - 2)) 
-            then 1 else NaN
-          </expression>
-          <description>Flood Mask</description>
-          <unit/>
+          <expression>band_1</expression>
+          <noDataValue>NaN</noDataValue>
+        </targetBand>
+      </targetBands>
+    </parameters>
+  </node>
+  <node id="ReadVVThreshold">
+    <operator>Read</operator>
+    <sources/>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <useAdvancedOptions>false</useAdvancedOptions>
+      <file>${vv_threshold_tif}</file>
+      <copyMetadata>false</copyMetadata>
+    </parameters>
+  </node>
+  <node id="RenameVV">
+    <operator>BandMaths</operator>
+    <sources>
+      <sourceProduct refid="ReadVVThreshold"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <targetBands>
+        <targetBand>
+          <name>otsu_vv_threshold</name>
+          <type>float32</type>
+          <expression>band_1</expression>
+          <noDataValue>NaN</noDataValue>
+        </targetBand>
+      </targetBands>
+    </parameters>
+  </node>
+  <node id="ReadSlopeMask">
+    <operator>Read</operator>
+    <sources/>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <useAdvancedOptions>false</useAdvancedOptions>
+      <file>${slope_mask_tif}</file>
+      <copyMetadata>false</copyMetadata>
+    </parameters>
+  </node>
+  <node id="RenameSlopeMask">
+    <operator>BandMaths</operator>
+    <sources>
+      <sourceProduct refid="ReadSlopeMask"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <targetBands>
+        <targetBand>
+          <name>slope_mask</name>
+          <type>int8</type>
+          <expression>band_1</expression>
           <noDataValue>0</noDataValue>
         </targetBand>
       </targetBands>
-      <variables/>
     </parameters>
   </node>
-  <node id="Write">
-    <operator>Write</operator>
+  <node id="ReadElevThreshold">
+    <operator>Read</operator>
+    <sources/>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <useAdvancedOptions>false</useAdvancedOptions>
+      <file>${elev_threshold_tif}</file>
+      <copyMetadata>false</copyMetadata>
+    </parameters>
+  </node>
+  <node id="RenameElevThreshold">
+    <operator>BandMaths</operator>
     <sources>
-      <sourceProduct refid="BandMaths"/>
+      <sourceProduct refid="ReadElevThreshold"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <file>${output}</file>
-      <formatName>BEAM-DIMAP</formatName>
+      <targetBands>
+        <targetBand>
+          <name>elev_threshold</name>
+          <type>float32</type>
+          <expression>band_1</expression>
+          <noDataValue>NaN</noDataValue>
+        </targetBand>
+      </targetBands>
     </parameters>
   </node>
-  <applicationData id="Presentation">
-    <Description/>
-    <node id="Read">
-      <displayPosition x="77.0" y="154.0"/>
-    </node>
-    <node id="BandMaths">
-      <displayPosition x="305.0" y="155.0"/>
+  <node id="BandMerge">
+    <operator>BandMerge</operator>
+    <sources>
+      <sourceProduct refid="ReadStack"/>
+      <sourceProduct.1 refid="RenameVH"/>
+      <sourceProduct.2 refid="RenameVV"/>
+      <sourceProduct.3 refid="RenameSlopeMask"/>
+      <sourceProduct.4 refid="RenameElevThreshold"/>
+    </sources>
+    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+      <geographicError>1.0E-5</geographicError>
+    </parameters>
+  </node>
+  <node id="BandMaths">
+      <operator>BandMaths</operator>
+      <sources>
+        <sourceProduct refid="BandMerge"/>
+      </sources>
+      <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+        <targetBands>
+          <targetBand>
+            <name>Flood</name>
+            <type>float32</type>
+            <expression>
+              <!-- if ${hasDataAtPixel}
+              AND land_cover_ESA_WorldCover != 80
+              AND elevation &lt; elev_threshold
+              AND slope_mask == 1
+              AND (
+                (land_cover_ESA_WorldCover == 50 AND ${vh_diff} &lt; (otsu_vh_threshold - 0.15) AND ${vv_diff} &lt; (otsu_vv_threshold - 0.15))
+                OR
+                (land_cover_ESA_WorldCover != 50 AND ${vh_diff} &lt; (otsu_vh_threshold - 0.03) AND ${vv_diff} &lt; (otsu_vv_threshold - 0.03))
+              )
+              then 1
+              else 0 -->
+              if ${hasDataAtPixel}
+              AND land_cover_ESA_WorldCover != 80
+              AND elevation &lt; elev_threshold
+              AND slope_mask == 1
+              AND (
+                (land_cover_ESA_WorldCover == 50 AND ${vh_diff} &lt; (otsu_vh_threshold - 0.15) AND ${vv_diff} &lt; (otsu_vv_threshold - 0.15))
+                OR
+                (land_cover_ESA_WorldCover == 10 AND ${vh_diff} &lt; (otsu_vh_threshold - 0.20) AND ${vv_diff} &lt; (otsu_vv_threshold - 0.20))
+                OR
+                (land_cover_ESA_WorldCover != 50 AND land_cover_ESA_WorldCover != 10 AND ${vh_diff} &lt; (otsu_vh_threshold - 0.03) AND ${vv_diff} &lt; (otsu_vv_threshold - 0.03))
+              )
+              then 1 else 0
+            </expression>
+          </targetBand>
+        </targetBands>
+      </parameters>
     </node>
     <node id="Write">
-      <displayPosition x="450.0" y="153.0"/>
+      <operator>Write</operator>
+      <sources>
+        <sourceProduct refid="BandMaths"/>
+      </sources>
+      <parameters class="com.bc.ceres.binding.dom.XppDomElement">
+        <file>${output}</file>
+        <formatName>BEAM-DIMAP</formatName>
+      </parameters>
     </node>
+  <applicationData id="Presentation">
+    <Description/>
+    <node id="ReadStack"><displayPosition x="30.0" y="300.0"/></node>
+    <node id="ReadVHThreshold"><displayPosition x="30.0" y="60.0"/></node>
+    <node id="RenameVH"><displayPosition x="180.0" y="60.0"/></node>
+    <node id="ReadVVThreshold"><displayPosition x="30.0" y="160.0"/></node>
+    <node id="RenameVV"><displayPosition x="180.0" y="160.0"/></node>
+    <node id="ReadSlopeMask"><displayPosition x="30.0" y="420.0"/></node>
+    <node id="RenameSlopeMask"><displayPosition x="180.0" y="420.0"/></node>
+    <node id="ReadElevThreshold"><displayPosition x="30.0" y="520.0"/></node>
+    <node id="RenameElevThreshold"><displayPosition x="180.0" y="520.0"/></node>
+    <node id="BandMerge"><displayPosition x="360.0" y="300.0"/></node>
+    <node id="BandMaths"><displayPosition x="510.0" y="300.0"/></node>
+    <node id="FinalCleanMask"><displayPosition x="630.0" y="300.0"/></node>
+    <node id="Write"><displayPosition x="760.0" y="300.0"/></node>
   </applicationData>
 </graph>

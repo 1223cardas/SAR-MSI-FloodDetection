@@ -32,12 +32,39 @@ def getExecutable() -> list[str]:
 
 def getGPTCommand(gptExec: Path) -> list[str]:
     """Build the command list to execute SNAP GPT with the specified executable and memory settings."""
-    return [str(gptExec), "-x", "-J-Xms1G", "-J-Xmx4G"]
+    return [str(gptExec), "-x", "-J-Xms1G", "-J-Xmx4G", "-q", "4"]
 
 
-def execute_command(cmd: list[str], success_message: str, error_message: str) -> None:
+def execute_command(
+    cmd: list[str],
+    success_message: str,
+    error_message: str
+) -> bool:
     try:
-        subprocess.run(cmd, check=True)
-        print(success_message)
-    except subprocess.CalledProcessError as e:
-        print(f"{error_message}\n{e.stderr}")
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except FileNotFoundError as e:
+        print(f"Could not launch GPT: {e}")
+        return False
+
+    out = proc.stdout
+    assert out is not None
+
+    for chunk in iter(lambda: out.read(1), ""):
+        print(chunk, end="", flush=True)
+
+    proc.wait()
+
+    if proc.returncode != 0:
+        print(f"\n{error_message}")
+        print(f"GPT exited with code {proc.returncode}")
+        return False
+
+    print(success_message)
+    return True

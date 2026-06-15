@@ -113,7 +113,7 @@ def queueProductsForDownload(products: list[Product]) -> list[Path]:
 		print("All products already downloaded. No downloads queued.")
 		return checked_paths
 		
-	opt = input("Queue products for download? [y/n]", expected_type=str)
+	opt = input("Queue products for download? [y/n]")
 	if opt not in ("y", "yes"):
 		print("Download skipped")
 		return []

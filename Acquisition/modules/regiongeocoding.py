@@ -38,10 +38,7 @@ def requestRegionInfo(region_name: str, geolocator: Nominatim) -> list[Place]:
 
 def selectPlace(places: list[Place]) -> Place | None:
 	while True:
-		selection = input(
-			"Select a region by entering the corresponding number. (or 'b' to choose another region)",
-			expected_type=str
-		)
+		selection = input("Select a region by entering the corresponding number. (or 'b' to choose another region)")
 		if selection.lower() == 'b':
 			return None
 
@@ -57,10 +54,7 @@ def selectPlace(places: list[Place]) -> Place | None:
 			continue
 
 		while True:
-			confirm = input(
-				f"Use '{place.name}'? [y/n]:",
-				expected_type=str
-				)
+			confirm = input(f"Use '{place.name}'? [y/n]:")
 			if confirm.lower() == 'n':
 				break
 			elif confirm.lower() == 'y':
@@ -124,7 +118,7 @@ def getRegion(entry: LogEntry):
 	geolocator = Nominatim(user_agent=aquisition_config.USER_AGENT) # type: ignore[call-arg]
 
 	while True:
-		region_name = input("\nEnter the name of the region:", expected_type=str)
+		region_name = input("\nEnter the name of the region:")
 		if len(region_name) == 1:
 			print("Region name too short. Please enter a more specific name.")
 			continue
