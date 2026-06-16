@@ -4,6 +4,24 @@ from pathlib import Path
 import numpy as np
 import rasterio
 from rasterio.warp import Resampling, reproject
+import threading
+
+
+def _should_stop(stop_event, pause_event, progress_callback=None, fraction=0.0):
+    if stop_event is not None and stop_event.is_set():
+        if progress_callback is not None:
+            progress_callback(fraction, "Cancelado")
+        return True
+    if pause_event is not None and pause_event.is_set():
+        if progress_callback is not None:
+            progress_callback(fraction, "Pausado")
+        while pause_event.is_set():
+            if stop_event is not None and stop_event.is_set():
+                if progress_callback is not None:
+                    progress_callback(fraction, "Cancelado")
+                return True
+            threading.Event().wait(0.2)
+    return stop_event is not None and stop_event.is_set()
 
 
 def _load_raster(path: Path) -> tuple[np.ndarray, dict]:
@@ -60,18 +78,41 @@ def fuse_flood_outputs(
     s1_flood_path: str | Path,
     s2_flood_path: str | Path,
     output_path: str | Path | None = None,
+    progress_callback=None,
+    stop_event=None,
+    pause_event=None,
 ) -> Path:
     """Fuse S1 and S2 flood outputs and save a float32 continuous confidence map."""
     s1_flood_path = Path(s1_flood_path)
     s2_flood_path = Path(s2_flood_path)
     output_path = Path(output_path) if output_path is not None else s1_flood_path.with_name("flood_fused_continuous.tif")
 
+    if _should_stop(stop_event, pause_event, progress_callback, 0.0):
+        return output_path
+
     s1_data, s1_profile = _load_raster(s1_flood_path)
+    if progress_callback is not None:
+        progress_callback(0.15, "A carregar raster S1")
+    if _should_stop(stop_event, pause_event, progress_callback, 0.15):
+        return output_path
+
     s2_data, s2_profile = _load_raster(s2_flood_path)
+    if progress_callback is not None:
+        progress_callback(0.3, "A carregar raster S2")
+    if _should_stop(stop_event, pause_event, progress_callback, 0.3):
+        return output_path
     
     s2_data = _align_to_reference(s2_data, s2_profile, s1_profile)
+    if progress_callback is not None:
+        progress_callback(0.55, "A alinhar raster S2")
+    if _should_stop(stop_event, pause_event, progress_callback, 0.55):
+        return output_path
 
     fused_continuous = fuse_flood_bits(s1_data, s2_data)
+    if progress_callback is not None:
+        progress_callback(0.75, "A fundir rasters")
+    if _should_stop(stop_event, pause_event, progress_callback, 0.75):
+        return output_path
 
     output_profile = s1_profile.copy()
     output_profile.pop("nodata", None)
@@ -86,6 +127,9 @@ def fuse_flood_outputs(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with rasterio.open(output_path, "w", **output_profile) as dst:
         dst.write(fused_continuous, 1)
+
+    if progress_callback is not None:
+        progress_callback(1.0, "Fusão concluída")
 
     print(f"\n[FUSION] Concluído! Ficheiro de escala contínua guardado em: {output_path.name}")
     print(f" -> Valores únicos gerados na fusão: {np.unique(fused_continuous)}")

@@ -1,4 +1,5 @@
 import os
+import threading
 import rasterio
 from rasterio.enums import Resampling
 
@@ -12,8 +13,52 @@ def _print_area(label, area_m2):
     print(f"{label}: {area_m2:,.2f} m2 ({area_m2 / 1_000_000.0:,.4f} km2)")
 
 
-def run_pipeline(before, after, work, preview=False, threshold=None):
+def _should_stop(stop_event, pause_event):
+    if stop_event is not None and stop_event.is_set():
+        return True
+    while pause_event is not None and pause_event.is_set():
+        if stop_event is not None and stop_event.is_set():
+            return True
+        threading.Event().wait(0.2)
+    return stop_event is not None and stop_event.is_set()
+
+
+def _wait_if_paused(stop_event, pause_event, progress_callback=None, fraction=0.0, message="Pausado"):
+    if pause_event is None or not pause_event.is_set():
+        return False
+    if progress_callback is not None:
+        progress_callback(fraction, message)
+    while pause_event.is_set():
+        if stop_event is not None and stop_event.is_set():
+            if progress_callback is not None:
+                progress_callback(fraction, "Cancelado")
+            return True
+        threading.Event().wait(0.2)
+    return stop_event is not None and stop_event.is_set()
+
+
+def _emit(progress_callback, fraction, message):
+    if progress_callback is not None:
+        progress_callback(fraction, message)
+
+
+def run_pipeline(
+    before,
+    after,
+    work,
+    preview=False,
+    threshold=None,
+    progress_callback=None,
+    stop_event=None,
+    pause_event=None,
+):
     prepare_workspace(work)
+    _emit(progress_callback, 0.0, "A preparar workspace S2")
+
+    if _should_stop(stop_event, pause_event):
+        return
+    if _wait_if_paused(stop_event, pause_event, progress_callback, 0.0):
+        return
 
     with rasterio.open(before.b3) as ref_src:
         b3b_data = ref_src.read(1).astype("float32")
@@ -21,12 +66,23 @@ def run_pipeline(before, after, work, preview=False, threshold=None):
 
         # Alinhamento das bandas normais de 10m (usam Bilinear por padrão)
         b8b_data = ensure_alignment(ref_src, before.b8)
+        _emit(progress_callback, 0.12, "Alinhando bandas S2")
+        if _should_stop(stop_event, pause_event):
+            return
+        if _wait_if_paused(stop_event, pause_event, progress_callback, 0.12):
+            return
         b3a_data = ensure_alignment(ref_src, after.b3)
         b8a_data = ensure_alignment(ref_src, after.b8)
         
         # Alinhamento e Resampling das bandas SCL (Força o Nearest Neighbor para manter integridade das classes)
         sclb_data = ensure_alignment(ref_src, before.scl, resampling=Resampling.nearest)
         scla_data = ensure_alignment(ref_src, after.scl, resampling=Resampling.nearest)
+
+    _emit(progress_callback, 0.22, "Bandas S2 alinhadas")
+    if _should_stop(stop_event, pause_event):
+        return
+    if _wait_if_paused(stop_event, pause_event, progress_callback, 0.22):
+        return
 
     print("\nShapes:")
     print(f"B3B: {b3b_data.shape} | B8B: {b8b_data.shape} | B3A: {b3a_data.shape} | B8A: {b8a_data.shape}")
@@ -35,12 +91,22 @@ def run_pipeline(before, after, work, preview=False, threshold=None):
     debug("NDWI AND SCL CONFIDENCE")
     ndwi_before = compute_ndwi(b3b_data, b8b_data)
     ndwi_after = compute_ndwi(b3a_data, b8a_data)
+    _emit(progress_callback, 0.35, "NDWI calculado")
+    if _should_stop(stop_event, pause_event):
+        return
+    if _wait_if_paused(stop_event, pause_event, progress_callback, 0.35):
+        return
 
     write_raster(os.path.join(work, "ndwi_before.tif"), ndwi_before, profile, NODATA_VALUE)
     write_raster(os.path.join(work, "ndwi_after.tif"), ndwi_after, profile, NODATA_VALUE)
 
     scl_conf_before = compute_scl_confidence_mask(sclb_data)
     scl_conf_after = compute_scl_confidence_mask(scla_data)
+    _emit(progress_callback, 0.5, "Confiança SCL calculada")
+    if _should_stop(stop_event, pause_event):
+        return
+    if _wait_if_paused(stop_event, pause_event, progress_callback, 0.5):
+        return
 
     # Gravar as matrizes de confiança originais da SCL (Float32 para decimais)
     profile_conf = profile.copy()
@@ -63,9 +129,20 @@ def run_pipeline(before, after, work, preview=False, threshold=None):
     else:
         print(f"\nThreshold mode: MANUAL -> {threshold:.4f}")
 
+    _emit(progress_callback, 0.65, "Threshold definido")
+    if _should_stop(stop_event, pause_event):
+        return
+    if _wait_if_paused(stop_event, pause_event, progress_callback, 0.65):
+        return
+
     debug("WATER MASK")
     water_before = water_mask(ndwi_before, threshold=threshold)
     water_after = water_mask(ndwi_after, threshold=threshold)
+    _emit(progress_callback, 0.75, "Máscaras de água criadas")
+    if _should_stop(stop_event, pause_event):
+        return
+    if _wait_if_paused(stop_event, pause_event, progress_callback, 0.75):
+        return
 
     write_raster(os.path.join(work, "water_before.tif"), water_before, profile, 0)
     write_raster(os.path.join(work, "water_after.tif"), water_after, profile, 0)
@@ -85,6 +162,11 @@ def run_pipeline(before, after, work, preview=False, threshold=None):
     profile_flood.update(dtype="float32")
     write_raster(os.path.join(work, "flood.tif"), flood, profile_flood, 0.0)
     stats(flood, "NEW FLOOD WITH SCL VALUES", 0.0)
+    _emit(progress_callback, 0.9, "Flood calculado e guardado")
+    if _should_stop(stop_event, pause_event):
+        return
+    if _wait_if_paused(stop_event, pause_event, progress_callback, 0.9):
+        return
 
     debug("AREA")
     transform = profile["transform"]
@@ -97,6 +179,11 @@ def run_pipeline(before, after, work, preview=False, threshold=None):
     _print_area("New FLOOD   ", area_flood)
 
     if preview:
+        _emit(progress_callback, 0.95, "A gerar preview")
+        if _should_stop(stop_event, pause_event):
+            return
+        if _wait_if_paused(stop_event, pause_event, progress_callback, 0.95):
+            return
         preview_path = os.path.join(work, "preview.png")
         # As funções de visualização continuam a receber a versão binária para não partir os plots
         save_preview_png(
@@ -118,4 +205,5 @@ def run_pipeline(before, after, work, preview=False, threshold=None):
             threshold=threshold,
         )
 
+    _emit(progress_callback, 1.0, "S2 concluído")
     print("\nDONE ->", os.path.abspath(work))

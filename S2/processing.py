@@ -14,7 +14,15 @@ def compute_ndwi(green_band, nir_band):
     return ndwi
 
 
-def compute_optimal_threshold(ndwi_before, ndwi_after, default_threshold=NDWI_THRESHOLD):
+def compute_optimal_threshold(ndwi_before, ndwi_after, default_threshold=NDWI_THRESHOLD, progress_callback=None, stop_event=None, pause_event=None):
+    if stop_event is not None and stop_event.is_set():
+        return default_threshold
+    while pause_event is not None and pause_event.is_set():
+        if stop_event is not None and stop_event.is_set():
+            return default_threshold
+        import threading
+        threading.Event().wait(0.2)
+
     valid_before = ndwi_before[(ndwi_before != NODATA_VALUE) & np.isfinite(ndwi_before)]
     valid_after = ndwi_after[(ndwi_after != NODATA_VALUE) & np.isfinite(ndwi_after)]
     valid = np.concatenate([valid_before, valid_after])

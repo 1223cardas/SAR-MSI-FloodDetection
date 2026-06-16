@@ -9,3 +9,5 @@ oauthlib==3.3.1
 requests-oauthlib==2.0.0
 tqdm==4.68.0
 shapely==2.1.2
+customtkinter==5.2.2
+tkterminal==0.1.0
