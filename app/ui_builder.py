@@ -282,7 +282,6 @@ class UIBuilder:
                 command=lambda m=mode: self._on_mode_changed(m),
             ).pack(fill="x", padx=15, pady=8)
 
-        _nav("Pipeline Completo", "all")
         _nav("Modo automático",   "auto")
         _nav("Sentinel-1",        "s1")
         _nav("Sentinel-2",        "s2")

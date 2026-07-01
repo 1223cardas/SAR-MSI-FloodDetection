@@ -104,7 +104,7 @@ class RunController:
             else:
                 app.run_state = RunState.COMPLETED
                 app.after(0, lambda: app.ui.progress.set(1.0))
-                app.after(0, lambda: app.ui.set_status("Concluído ✓"))
+                app.after(0, lambda: app.ui.set_status("Concluído"))
                 app.after(0, lambda: app.ui.set_progress_color("completed"))
                 app.after(0, lambda: app.ui.set_result_button_state(bool(final_output_path)))
 
@@ -125,7 +125,7 @@ class RunController:
                 return
             print(f"Erro: {e}")
             app.run_state = RunState.FAILED
-            app.after(0, lambda: app.ui.set_status("Falhou ✗"))
+            app.after(0, lambda: app.ui.set_status("Falhou"))
             app.after(0, lambda: app.ui.set_progress_color("failed"))
             app.after(0, lambda: app.ui.set_result_button_state(False))
             app.after(0, lambda: app.ui.progress.set(0))
