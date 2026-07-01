@@ -21,6 +21,9 @@ class RunController:
         app._pause_event.clear()
         app.run_state        = RunState.RUNNING
         app._last_status_text = "A executar..."
+        app.last_output_path = None
+        app.ui.clear_log()
+        app.ui.set_progress_color("running")
         threading.Thread(target=self._worker, daemon=True).start()
 
     def toggle_pause(self):
@@ -31,6 +34,7 @@ class RunController:
             app._last_status_text = app.ui.status.cget("text")
             app.ui.set_status("Pausa solicitada. A aguardar ponto seguro...")
             app.ui.set_pause_label("Retomar")
+            app.ui.set_progress_color("paused")
             print("A tentar pausar a execução...\n")
 
         elif app.run_state == RunState.PAUSED:
@@ -38,6 +42,7 @@ class RunController:
             app.run_state = RunState.RUNNING
             app.ui.set_status(app._last_status_text)
             app.ui.set_pause_label("Pausar")
+            app.ui.set_progress_color("running")
             print("Execução retomada pelo utilizador.\n")
 
     def cancel(self):
@@ -45,6 +50,7 @@ class RunController:
         app._stop_event.set()
         app._last_status_text = app.ui.status.cget("text")
         app.ui.set_status("A cancelar...")
+        app.ui.set_progress_color("canceled")
         print("A tentar cancelar a execução...\n")
 
     # ------------------------------------------------------------------
@@ -64,9 +70,11 @@ class RunController:
             print("Execução pausada. Clique em Retomar para continuar.")
             app.after(0, lambda: app.ui.set_status("Pausado"))
             app.after(0, lambda: app.ui.set_pause_label("Retomar"))
+            app.after(0, lambda: app.ui.set_progress_color("paused"))
             app.after(0, lambda: setattr(app, "run_state", RunState.PAUSED))
         elif msg == "Cancelado":
             app.after(0, lambda: app.ui.set_status("Cancelado"))
+            app.after(0, lambda: app.ui.set_progress_color("canceled"))
             app.after(0, lambda: setattr(app, "run_state", RunState.CANCELED))
         else:
             app._last_status_text = msg
@@ -79,30 +87,47 @@ class RunController:
     def _worker(self):
         app = self._app
         try:
-            self._dispatch(app.mode.get())
+            final_output_path = self._dispatch(app.mode.get())
+            app.last_output_path = final_output_path
+
+            if final_output_path and not app._stop_event.is_set():
+                try:
+                    app.ui.cache_result_preview(final_output_path)
+                except Exception as e:
+                    print(f"Aviso: falha ao criar preview PNG em cache: {e}")
 
             if app._stop_event.is_set():
                 app.run_state = RunState.CANCELED
                 app.after(0, lambda: app.ui.set_status("Cancelado"))
+                app.after(0, lambda: app.ui.set_progress_color("canceled"))
+                app.after(0, lambda: app.ui.set_result_button_state(False))
             else:
                 app.run_state = RunState.COMPLETED
                 app.after(0, lambda: app.ui.progress.set(1.0))
                 app.after(0, lambda: app.ui.set_status("Concluído ✓"))
+                app.after(0, lambda: app.ui.set_progress_color("completed"))
+                app.after(0, lambda: app.ui.set_result_button_state(bool(final_output_path)))
 
         except PromptCancelledError:
             app.run_state = RunState.CANCELED
             app.after(0, lambda: app.ui.set_status("Cancelado"))
+            app.after(0, lambda: app.ui.set_progress_color("canceled"))
+            app.after(0, lambda: app.ui.set_result_button_state(False))
             app.after(0, lambda: print("Execução cancelada durante a espera de entrada.\n"))
 
         except Exception as e:
             if app._stop_event.is_set():
                 app.run_state = RunState.CANCELED
                 app.after(0, lambda: app.ui.set_status("Cancelado"))
+                app.after(0, lambda: app.ui.set_progress_color("canceled"))
+                app.after(0, lambda: app.ui.set_result_button_state(False))
                 app.after(0, lambda: print("Execução cancelada.\n"))
                 return
             print(f"Erro: {e}")
             app.run_state = RunState.FAILED
             app.after(0, lambda: app.ui.set_status("Falhou ✗"))
+            app.after(0, lambda: app.ui.set_progress_color("failed"))
+            app.after(0, lambda: app.ui.set_result_button_state(False))
             app.after(0, lambda: app.ui.progress.set(0))
 
         finally:
@@ -123,6 +148,7 @@ class RunController:
                 progress_callback=cb, stop_event=stop, pause_event=pause,
             ).run(run_processing=True, view=False)
             print("S1 cancelado." if stop.is_set() else f"S1 concluído: {result.output_path}")
+            return result.output_path if not stop.is_set() else None
 
         elif mode == "s2":
             print("A iniciar Sentinel-2...")
@@ -135,6 +161,7 @@ class RunController:
                 progress_callback=cb, stop_event=stop, pause_event=pause,
             ).run(run_processing=True, view=False)
             print("S2 cancelado." if stop.is_set() else f"S2 concluído: {result.output_path}")
+            return result.output_path if not stop.is_set() else None
 
         elif mode == "fusion":
             print("A executar fusão...")
@@ -147,10 +174,12 @@ class RunController:
                 pause_event=pause,
             )
             print("Fusão cancelada." if stop.is_set() else f"Fusão concluída: {out}")
+            return out if not stop.is_set() else None
 
         elif mode == "all":
             print("A executar pipeline completo...")
             # TODO: ligar ao main.py all pipeline
+            return None
 
         elif mode == "auto":
             print("A executar pipeline automático...")
@@ -206,9 +235,13 @@ class RunController:
                 )
                 print("Fusão automática concluída." if not stop.is_set() else "Fusão automática cancelada.")
                 print(out)
+                return out if not stop.is_set() else None
             elif s1_path:
                 print(f"[auto] apenas S1 disponível — resultado: {s1_path}")
+                return s1_path
             elif s2_path:
                 print(f"[auto] apenas S2 disponível — resultado: {s2_path}")
+                return s2_path
             else:
                 print("[auto] nenhum ficheiro produzido apesar dos dados reportados.")
+                return None

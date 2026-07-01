@@ -151,7 +151,7 @@ class S2Processor(Processor):
                 if self._check():
                     return self._abort("Cancelado antes de iniciar S2")
 
-                self._progress(0.05, "A descobrir produtos S2")
+                self._progress(0.1, "A descobrir produtos S2")
                 before, after = s2_discovery.discover_all_band_pairs(self.imagens_dir, entry)
 
                 if self._check():

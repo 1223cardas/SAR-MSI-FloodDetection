@@ -1,4 +1,13 @@
+from pathlib import Path
+
 import customtkinter as ctk
+import numpy as np
+import rasterio
+from matplotlib import colors
+import matplotlib.image as mpimg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+
 from .config import MODE_CONFIG, RunState
 
 WIDTH  = 1280
@@ -10,6 +19,14 @@ class UIBuilder:
         self.app = app
         self._on_mode_changed = on_mode_changed
 
+        self._progress_colors = {
+            "running": "#3b82f6",
+            "paused": "#f59e0b",
+            "canceled": "#ef4444",
+            "failed": "#ef4444",
+            "completed": "#22c55e",
+        }
+
         # Widgets expostos para o exterior
         self.status   = None
         self.progress = None
@@ -17,6 +34,7 @@ class UIBuilder:
         self.pause_btn  = None
         self.cancel_btn = None
         self.run_btn    = None
+        self.result_btn = None
 
     # ------------------------------------------------------------------
     # Ponto de entrada
@@ -37,6 +55,115 @@ class UIBuilder:
     def set_status(self, text: str):
         self.app.after(0, lambda t=text: self.status.configure(text=t))
 
+    def clear_log(self):
+        self.app.after(0, self._do_clear_log)
+
+    def _do_clear_log(self):
+        if self.log_box:
+            self.log_box.configure(state="normal")
+            self.log_box.delete("1.0", "end")
+            self.log_box.configure(state="disabled")
+
+    def set_progress_color(self, state: str):
+        color = self._progress_colors.get(state, self._progress_colors["running"])
+        self.app.after(0, lambda c=color: self.progress.configure(progress_color=c))
+
+    def set_result_button_state(self, enabled: bool):
+        state = "normal" if enabled else "disabled"
+        self.app.after(0, lambda: self.result_btn.configure(state=state))
+
+    def show_result_preview(self):
+        path = getattr(self.app, "last_output_path", None)
+        if not path:
+            self.set_status("Sem resultado final para visualizar.")
+            return
+
+        tif_path = Path(path)
+        if not tif_path.exists():
+            self.set_status("O ficheiro final já não existe no disco.")
+            return
+
+        preview_png = self.cache_result_preview(tif_path)
+        if preview_png is None or not preview_png.exists():
+            self.set_status("Falha ao preparar preview PNG do resultado.")
+            return
+
+        preview = ctk.CTkToplevel(self.app)
+        preview.title(f"Resultado final - {tif_path.name}")
+        preview.geometry("980x760")
+        preview.minsize(800, 600)
+
+        container = ctk.CTkFrame(preview)
+        container.pack(fill="both", expand=True, padx=12, pady=12)
+
+        header = ctk.CTkLabel(
+            container,
+            text=f"Resultado final: {tif_path.name}",
+            font=ctk.CTkFont(size=16, weight="bold"),
+        )
+        header.pack(anchor="w", padx=12, pady=(12, 6))
+
+        info = ctk.CTkLabel(
+            container,
+            text=f"Origem: {tif_path} | Preview: {preview_png.name}",
+            text_color="gray",
+            anchor="w",
+        )
+        info.pack(fill="x", padx=12, pady=(0, 10))
+
+        rgb = mpimg.imread(preview_png)
+        fig = Figure(figsize=(8, 6), dpi=100)
+        ax = fig.add_subplot(111)
+        ax.imshow(rgb)
+        ax.set_title("Mapa de resultado final (PNG em cache)")
+        ax.set_axis_off()
+        fig.tight_layout()
+
+        canvas = FigureCanvasTkAgg(fig, master=container)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True, padx=12, pady=(0, 12))
+
+        preview.transient(self.app)
+        preview.focus_set()
+
+    def cache_result_preview(self, tif_path: str | Path | None) -> Path | None:
+        if not tif_path:
+            return None
+
+        source = Path(tif_path)
+        if not source.exists() or source.suffix.lower() != ".tif":
+            return None
+
+        preview_png = source.with_suffix(".preview.png")
+        if preview_png.exists() and preview_png.stat().st_mtime >= source.stat().st_mtime:
+            return preview_png
+
+        with rasterio.open(source) as src:
+            data = src.read(1).astype("float32")
+
+        finite = np.isfinite(data)
+        if not finite.any():
+            return None
+
+        valid = data[finite]
+        vmin = float(valid.min())
+        vmax = float(valid.max())
+        if vmax <= vmin:
+            vmax = vmin + 1.0
+
+        masked = np.ma.masked_invalid(data)
+        fig = Figure(figsize=(10, 7), dpi=140)
+        ax = fig.add_subplot(111)
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+        image = ax.imshow(masked, cmap="viridis", norm=norm)
+        ax.set_axis_off()
+        ax.set_title(f"{source.name} | escala {vmin:.3f} a {vmax:.3f}")
+        fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04, label="Valor")
+        fig.tight_layout()
+        fig.savefig(preview_png, bbox_inches="tight", pad_inches=0.05)
+        fig.clear()
+        return preview_png
+
     def set_pause_label(self, text: str):
         self.app.after(0, lambda t=text: self.pause_btn.configure(text=t))
 
@@ -45,12 +172,15 @@ class UIBuilder:
         self.run_btn.configure(state="disabled")
         self.pause_btn.configure(state="normal", text="Pausar")
         self.cancel_btn.configure(state="normal")
+        self.set_result_button_state(False)
+        self.set_progress_color("running")
 
     def reset_controls(self):
         """Restaura a UI para o estado idle após o fim de uma execução."""
         self.run_btn.configure(state="normal")
         self.pause_btn.configure(state="disabled", text="Pausar")
         self.cancel_btn.configure(state="disabled")
+        self.set_result_button_state(bool(getattr(self.app, "last_output_path", None)))
 
     def set_prompt_waiting(self, text="A aguardar seleção de produto..."):
         def _apply():
@@ -241,6 +371,14 @@ class UIBuilder:
 
         self.log_box = ctk.CTkTextbox(right, wrap="word", state="disabled")
         self.log_box.pack(fill="both", expand=True, padx=14, pady=(0, 12))
+
+        self.result_btn = ctk.CTkButton(
+            right,
+            text="Ver resultado final",
+            command=self.show_result_preview,
+            state="disabled",
+        )
+        self.result_btn.pack(fill="x", padx=14, pady=(0, 12))
 
         self._build_input_field(right)
 

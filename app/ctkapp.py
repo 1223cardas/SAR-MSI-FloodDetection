@@ -25,6 +25,7 @@ class App(ctk.CTk):
         self._field_entries   = {}
         self._field_values    = dict(FIELD_DEFAULTS)
         self._last_status_text = "Pronto"
+        self.last_output_path  = None
 
         self.run_state   = RunState.IDLE
         self._stop_event  = threading.Event()
