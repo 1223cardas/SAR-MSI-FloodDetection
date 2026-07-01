@@ -1,17 +1,21 @@
 from Acquisition.modules.search_log import updateLogEntry
 from .modules.pipeline import *
 from .modules.pclasses import ProductData
-from .modules.product_utils import get_band_file
+from .modules.utils import get_band_file
 from .modules.discovery import getEntry, getFloodDataFile
 from .modules.raster_utils import computeFloodArea, displayResults
 from .modules.paths import build_output_file, checkEntryInOutput, cleanupTIFSInCache
 
+from typing import Any, Callable, Optional
 from pathlib import Path
 import rasterio
 
-def processProducts(gptExec: list[str]) -> Path:
+def processProducts(gptExec: list[str], entry: dict | None = None, progress_callback: Optional[Callable[[float, Optional[str]], Any]] = None) -> Path:
     print("Starting product processing...")
-    entry = getEntry()
+    if entry is None:
+        entry = getEntry()
+
+    progress = progress_callback or (lambda *_args, **_kwargs: None)
 
     output_naming, processed_at, existing_tif = checkEntryInOutput(entry)
     if existing_tif is not None:
@@ -20,15 +24,20 @@ def processProducts(gptExec: list[str]) -> Path:
     updateLogEntry(entry, {"processed_at": processed_at})
 
     # 1. Process SNAP products to cache
+    progress(0.3, "Processing Products...")
     cachedProducts = runProcessing(entry, gptExec)
 
     # 2. Run stacking workflow to prepare variables for flood mask creation
+    progress(0.5, "Stacking products...")
     dimStack_file = runStacking(cachedProducts, gptExec)
 
     # 3. Create flood mask product
+    progress(0.7, "Creating flood mask...")
     dimFlood_file = runMaskCreation(dimStack_file, output_naming, gptExec)
 
+
     # 4. Save flood as tif to fuse with S2 results
+    progress(0.8, "Saving mask to tif file...")
     tif_path = convertFloodToTif(dimFlood_file, output_naming)
 
     print("Product processing complete.\n")

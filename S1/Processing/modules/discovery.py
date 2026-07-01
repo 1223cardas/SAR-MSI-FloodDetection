@@ -15,7 +15,7 @@ def getEntry() -> dict:
 
 	if csvEntry is None:
 		raise FileNotFoundError(
-			"No products found in data/.\n"
+			f"No products found in {OUTPUT_DIR}.\n"
 			"Please run the acquisition process first to create log entries."
 	)
 

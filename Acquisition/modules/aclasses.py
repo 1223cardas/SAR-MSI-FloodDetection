@@ -107,6 +107,8 @@ class Product:
 	id: str = ""
 	datetime: str = ""
 	uuid: str = ""
+	relative_orbit: int | None = None
+	orbit_state: str = ""
 
 
 

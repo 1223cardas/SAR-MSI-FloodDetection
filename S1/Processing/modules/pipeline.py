@@ -3,11 +3,13 @@ from pathlib import Path
 from .pclasses import Product
 from .paths import build_cache_file, build_output_file
 from .discovery import discoverProducts, discoverAOI, getProductFile
-from .product_utils import computeWorkflowVariables
+# from .product_utils import computeWorkflowVariables
 from .raster_utils import convertFileToTif
 from .pipeline_utils import setupExecution, checkSuffixForFile
 from .utils import refactor_snap_product
 
+from .product_utils import computeWorkflowVariables   # keep — but its contents change
+from .masking import export_clean_tif                 # replaces convertFileToTif
 
 def runProcessing(entry: dict, gptExec: list[str]) -> list[Product]:
     area_of_interest = discoverAOI(entry)
@@ -128,6 +130,6 @@ def convertFloodToTif(flood_dim: Path, namingScheme: str) -> Path:
         print(f"|\tFlood TIFF already exists: {tif_path}, skipping conversion.")
         return tif_path
     
-    convertFileToTif(flood_dim, tif_path)
+    export_clean_tif(flood_dim, tif_path)
 
     return tif_path

@@ -64,16 +64,6 @@ def getTimeSeries(entry: LogEntry):
 			print("Error parsing crisis date. Please try again.")
 			continue
 
-		margin = setDaysMargin()
-		
-		crisis_date_dt = datetime.strptime(crisis_date, "%Y-%m-%dT%H:%M:%SZ") 
-		timeFrame = getTimeFrame(crisis_date_dt, margin)
-
-		if timeFrame is None:
-			print("Error computing time frame. Please try again.")
-			continue
-
 		entry.crisis_date = crisis_date
-		entry.date_range = timeFrame.toString()
 
 		break
