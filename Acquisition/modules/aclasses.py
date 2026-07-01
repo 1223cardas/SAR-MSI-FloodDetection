@@ -72,6 +72,7 @@ class LogEntry:
 		)
 
 	def productFromIds(self):
+		if self.beforeId == "" or self.afterId == "": return []
 		return [Product(id=self.beforeId), Product(id=self.afterId)]
 
 

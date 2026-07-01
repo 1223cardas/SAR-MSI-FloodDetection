@@ -68,7 +68,7 @@ def acquireProducts(productType: str) -> LogEntry:
 	return entry
 
 
-def acquireProductsS1_S2() -> tuple[bool, bool]:
+def acquireProductsS1_S2() -> tuple[LogEntry, LogEntry]:
 	entries: list[LogEntry] = load_search_log()
 
 	if entries:
@@ -123,26 +123,25 @@ def acquireProductsS1_S2() -> tuple[bool, bool]:
 					products = s1_entry.productFromIds() + s2_entry.productFromIds()
 					queueProductsForDownload(products)
 
-					return len(s1_entry.productFromIds()) == 2, len(s2_entry.productFromIds()) == 2
-
+					return s1_entry, s2_entry
 				except ValueError:
 					print("Input inválido. Insere um número ou 'q'.")
 
-	# Nenhuma região completa encontrada, ou utilizador pediu nova entrada
+
 	print("A iniciar nova aquisição para S1 e S2...")
 	entry = LogEntry()
 	getRegion(entry)
 	getTimeSeries(entry)
 
-	s1_prod = setupEntry(entry, S1_COLLECTION)
-	s2_prod = setupEntry(entry, S2_COLLECTION)
+	s1_entry = setupEntry(entry, S1_COLLECTION)
+	s2_entry = setupEntry(entry, S2_COLLECTION)
 
-	queueProductsForDownload(s1_prod + s2_prod)
+	queueProductsForDownload(s1_entry.productFromIds() + s2_entry.productFromIds())
 
-	return len(s1_prod) == 2, len(s2_prod) == 2
+	return s1_entry, s2_entry
 
 
-def setupEntry(entry: LogEntry, collection: str) -> list[Product]:
+def setupEntry(entry: LogEntry, collection: str) -> LogEntry:
 	resultEntry = entry
 	resultEntry.collection = collection
 	print(f"Checking for products using {collection}")
@@ -151,9 +150,9 @@ def setupEntry(entry: LogEntry, collection: str) -> list[Product]:
 	saveLogEntry(resultEntry)
 	if len(products) != 2:
 		print(f"No products found for collection {collection}. Skipping download queue.")
-		return []
+		return LogEntry()
 
-	return products
+	return resultEntry
 
 
 def acquireEntryFromLog(entryType: str) -> LogEntry | None:
