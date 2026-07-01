@@ -31,7 +31,7 @@ def _ask_reuse(path: Path, label: str) -> bool:
     return answer in ("y", "yes", "s", "sim", "")
 
 
-def resolve_s1(*, force: bool = False) -> Path | None:
+def resolve_s1(*, force: bool = False, entry: dict | None = None) -> Path | None:
     """
     Resolve o TIF de output do Sentinel-1.
     Se existir um ficheiro e force=False, pergunta ao utilizador se quer reutilizá-lo.
@@ -50,7 +50,7 @@ def resolve_s1(*, force: bool = False) -> Path | None:
     sys.stderr.flush()
 
     try:
-        result = S1Processor().run(run_processing=True, view=False)
+        result = S1Processor().run(run_processing=True, view=False, entry=entry)
         path = _result_to_path(result)
         if path:
             return path
@@ -66,7 +66,7 @@ def resolve_s1(*, force: bool = False) -> Path | None:
 
 
 def resolve_s2(*, imagens: str = "Imagens", out_dir: str = "ndwi_work",
-               threshold: float | None = None, force: bool = False) -> Path | None:
+               threshold: float | None = None, force: bool = False, entry: dict | None = None) -> Path | None:
     """
     Resolve o TIF de output do Sentinel-2.
     Mesma lógica de reutilização/salvaguarda que o resolve_s1.
@@ -88,7 +88,7 @@ def resolve_s2(*, imagens: str = "Imagens", out_dir: str = "ndwi_work",
             out_dir=out_dir,
             preview=False,
             threshold=threshold,
-        ).run(run_processing=True, view=False)
+        ).run(run_processing=True, view=False, entry=entry)
         path = _result_to_path(result)
         if path:
             return path
@@ -161,7 +161,11 @@ def build_parser():
     total.add_argument("--threshold", type=float, default=None)
     total.add_argument("--out-tif", default="flood_fused_continuous.tif")
 
-    sub.add_parser("auto", help="Run program with availible data for the given request")
+    auto = sub.add_parser("auto", help="Run program with available data for the given request")
+    auto.add_argument("--imagens", default="Imagens")
+    auto.add_argument("--s2-out", default="ndwi_work")
+    auto.add_argument("--threshold", type=float, default=None)
+    auto.add_argument("--out-tif", default="flood_fused_continuous.tif")
 
     return p
 
@@ -247,19 +251,23 @@ def main():
                 sys.exit(5)
 
         case "auto":
-            hasS1, hasS2 = acquireProductsS1_S2()
-            logger.info("Dados disponíveis — S1: %s | S2: %s", hasS1 , hasS2)
+            s1_entry, s2_entry = acquireProductsS1_S2()
+            hasS1 = len(s1_entry.productFromIds()) == 2
+            hasS2 = len(s2_entry.productFromIds()) == 2
+
+            logger.info("Dados disponíveis — S1: %s | S2: %s", hasS1, hasS2)
 
             if not hasS1 and not hasS2:
                 logger.error("Nenhum dado disponível.")
                 sys.exit(1)
 
-            s1_path = resolve_s1(force=True) if hasS1 else None
-            s2_path = resolve_s2(                  
+            s1_path = resolve_s1(force=True, entry=s1_entry.to_dict()) if hasS1 else None
+            s2_path = resolve_s2(  
                 imagens=args.imagens,
                 out_dir=args.s2_out,
                 threshold=args.threshold,
                 force=True,
+                entry=s2_entry.to_dict()
             ) if hasS2 else None
 
             if s1_path and s2_path:

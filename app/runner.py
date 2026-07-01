@@ -154,27 +154,32 @@ class RunController:
 
         elif mode == "auto":
             print("A executar pipeline automático...")
-            has_s1, has_s2 = acquireProductsS1_S2()
-            print(f"Dados disponíveis — S1: {has_s1} | S2: {has_s2}")
+            s1_entry, s2_entry = acquireProductsS1_S2()
 
-            if not has_s1 and not has_s2:
+            hasS1 = len(s1_entry.productFromIds()) == 2
+            hasS2 = len(s2_entry.productFromIds()) == 2
+
+            print(f"Dados disponíveis — S1: {hasS1} | S2: {hasS2}")
+
+            if not hasS1 and not hasS2:
                 print("Nenhum dado disponível para processamento automático.")
                 return
 
             s1_path = None
-            if has_s1:
+            print(f"entry s1 {s1_entry}")
+            if hasS1:
                 result = S1Processor(
                     progress_callback=cb,
                     stop_event=stop,
                     pause_event=pause,
-                ).run(run_processing=True, view=False)
+                ).run(run_processing=True, view=False, entry=s1_entry.to_dict())
                 output_path = getattr(result, "output_path", None)
                 s1_path = Path(output_path) if output_path is not None else None
                 if not s1_path:
                     s1_path = next(iter(sorted(Path("S1/output").glob("*_flood.tif"), key=lambda p: p.stat().st_mtime, reverse=True)), None)
 
             s2_path = None
-            if has_s2:
+            if hasS2:
                 threshold = float(field("threshold")) if field("threshold") else None
                 result = S2Processor(
                     imagens_dir=field("s2_dir"),
@@ -184,7 +189,7 @@ class RunController:
                     progress_callback=cb,
                     stop_event=stop,
                     pause_event=pause,
-                ).run(run_processing=True, view=False)
+                ).run(run_processing=True, view=False, entry=s2_entry.to_dict())
                 output_path = getattr(result, "output_path", None)
                 s2_path = Path(output_path) if output_path is not None else None
                 if not s2_path:

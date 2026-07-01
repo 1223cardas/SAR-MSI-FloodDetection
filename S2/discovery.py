@@ -98,8 +98,10 @@ def _discover_band_pairs_in_safe(product_dir: Path) -> list[Bands]:
     return bands
 
 
-def discover_all_band_pairs(imagens_dir) -> tuple[Bands, Bands]:
-    entry = getEntry()
+def discover_all_band_pairs(imagens_dir, entry: dict | None = None) -> tuple[Bands, Bands]:
+    if entry is None: 
+        entry = getEntry()
+
     products = discoverProducts(entry)
 	
     pairs: list[Bands] = []

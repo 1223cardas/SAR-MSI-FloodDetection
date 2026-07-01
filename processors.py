@@ -88,7 +88,7 @@ class S1Processor(Processor):
         self.gpt_exec = snap.getExecutable()
         print("=" * 96)
 
-    def run(self, run_processing: bool, view: bool, entry = None) -> ProcessorResult:
+    def run(self, run_processing: bool, view: bool, entry: dict | None = None) -> ProcessorResult:
         output_path = None
 
         try:
@@ -141,7 +141,7 @@ class S2Processor(Processor):
         self.preview     = preview
         self.threshold   = threshold
 
-    def run(self, run_processing: bool, view: bool) -> ProcessorResult:
+    def run(self, run_processing: bool, view: bool, entry = None) -> ProcessorResult:
         output_path = None
 
         try:
@@ -152,7 +152,7 @@ class S2Processor(Processor):
                     return self._abort("Cancelado antes de iniciar S2")
 
                 self._progress(0.05, "A descobrir produtos S2")
-                before, after = s2_discovery.discover_all_band_pairs(self.imagens_dir)
+                before, after = s2_discovery.discover_all_band_pairs(self.imagens_dir, entry)
 
                 if self._check():
                     return self._abort("Cancelado após descoberta S2")
