@@ -176,11 +176,6 @@ class RunController:
             print("Fusão cancelada." if stop.is_set() else f"Fusão concluída: {out}")
             return out if not stop.is_set() else None
 
-        elif mode == "all":
-            print("A executar pipeline completo...")
-            # TODO: ligar ao main.py all pipeline
-            return None
-
         elif mode == "auto":
             print("A executar pipeline automático...")
             s1_entry, s2_entry = acquireProductsS1_S2()
