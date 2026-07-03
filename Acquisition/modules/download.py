@@ -62,7 +62,7 @@ def downloadProducts(products: list[Product], session: OAuth2Session) -> list[Pa
 			print(f"Product {prod.id} is missing a UUID. Skipping download.")
 			continue
 		
-		zip_path = output_dir / f"{prod.id.removesuffix(".SAFE")}.zip"
+		zip_path = output_dir / f"{prod.id.removesuffix('.SAFE')}.zip"
 		if zip_path.exists():
 			print(f"Product {prod.id} already exists at {zip_path}. Skipping download.")
 			downloaded_productPaths.append(zip_path)

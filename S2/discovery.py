@@ -98,23 +98,70 @@ def _discover_band_pairs_in_safe(product_dir: Path) -> list[Bands]:
     return bands
 
 
-def discover_all_band_pairs(imagens_dir, entry: dict | None = None) -> tuple[Bands, Bands]:
-    if entry is None: 
-        entry = getEntry()
-
+def _discover_all_band_pairs(imagens_dir) -> list[Bands]:
+    entry = getEntry()
     products = discoverProducts(entry)
-	
+
     pairs: list[Bands] = []
     for product_dir in products:
         pairs.extend(_discover_band_pairs_in_safe(product_dir.path))
-	
+
+    return pairs
+
+
+def _as_bands(pair) -> Bands:
+    if isinstance(pair, Bands):
+        return pair
+
+    safe_name = pair.get("safe_name") or Path(pair.get("safe_dir", "")).name
+    safe_dir = Path(pair.get("safe_dir", "")) if pair.get("safe_dir") else Path()
+    return Bands(
+        product=Product(name=safe_name, path=safe_dir),
+        granule=pair.get("granule", ""),
+        b3=pair["b3"],
+        b8=pair["b8"],
+        scl=pair.get("scl", ""),
+    )
+
+
+def _tile_and_date_from_b3(b3_path: str) -> tuple[str, str]:
+    name = Path(b3_path).name
+    tile = name.split("_")[0] if "_" in name else ""
+    m = re.search(r"_(\d{8}T\d{6})_", name)
+    date_token = m.group(1) if m else ""
+    return tile, date_token
+
+
+def discover_all_band_pairs(imagens_dir, entry: dict | None = None) -> tuple[Bands, Bands]:
+    if entry is None:
+        raw_pairs = _discover_all_band_pairs(imagens_dir)
+    else:
+        products = discoverProducts(entry)
+        raw_pairs = []
+        for product_dir in products:
+            raw_pairs.extend(_discover_band_pairs_in_safe(product_dir.path))
+
+    pairs = [_as_bands(p) for p in raw_pairs]
+
     if len(pairs) < 2:
         raise FileNotFoundError(
             "Pelo menos 2 pares de bandas B03/B08/SCL são necessários nos produtos .SAFE em: "
             f"{imagens_dir}"
         )
-	
-    before, after = pairs
+
+    by_tile: dict[str, list[Bands]] = {}
+    for p in pairs:
+        tile, _ = _tile_and_date_from_b3(p.b3)
+        by_tile.setdefault(tile, []).append(p)
+
+    candidate_tiles = [t for t, vals in by_tile.items() if t and len(vals) >= 2]
+    if candidate_tiles:
+        chosen_tile = sorted(candidate_tiles)[0]
+        selected = sorted(by_tile[chosen_tile], key=lambda p: _tile_and_date_from_b3(p.b3)[1])
+        before, after = selected[0], selected[-1]
+    else:
+        selected = sorted(pairs, key=lambda p: _tile_and_date_from_b3(p.b3)[1])
+        before, after = selected[0], selected[1]
 
     print("\nAuto-selected bands:")
     print("B03 before :", before.b3)

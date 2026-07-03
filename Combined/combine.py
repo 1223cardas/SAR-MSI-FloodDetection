@@ -62,16 +62,13 @@ def fuse_flood_bits(s1_flood: np.ndarray, s2_flood: np.ndarray) -> np.ndarray:
     if s1_flood.shape != s2_flood.shape:
         raise ValueError("Flood rasters must have the same shape before fusion")
 
-    # 1. Preparar a máscara do Sentinel-1 (1.0 para água, 0.0 para seco)
+    # S1 contributes as binary water mask (0 or 1)
     s1_bits = np.where(np.isfinite(s1_flood) & (s1_flood > 0), 1.0, 0.0).astype("float32")
 
-    # 2. Sentinel-2 (já vem com os pesos: 0.0, 0.1, 0.2, 1.0, 2.0)
+    # S2 values are preserved as continuous confidences/classes
     s2_weights = np.where(np.isfinite(s2_flood), s2_flood, 0.0).astype("float32")
 
-    # 3. Executa a fusão mantendo os decimais intactos
-    fusion_matrix = s1_bits + s2_weights
-
-    return fusion_matrix
+    return s1_bits + s2_weights
 
 
 def fuse_flood_outputs(
@@ -118,10 +115,10 @@ def fuse_flood_outputs(
     output_profile.pop("nodata", None)
     output_profile.update(
         driver="GTiff",
-        dtype="float32",  
+        dtype="float32",
         count=1,
         compress="lzw",
-        nodata=0.0,       
+        nodata=0.0,
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
