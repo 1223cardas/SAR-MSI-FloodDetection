@@ -207,48 +207,6 @@ def main():
             if args.run:
                 if not run_fusion(Path(args.s1_tif), Path(args.s2_tif), args.out_tif):
                     sys.exit(5)
-                    
-        case "fusion":
-            if args.view:
-                logger.warning("Preview não implementado para a fusão.")
-            if args.run:
-                logger.info("A iniciar a fusão de sensores isolada...")
-                try:
-                    out_path = fuse_flood_outputs(
-                        s1_flood_path=Path(args.s1_tif),
-                        s2_flood_path=Path(args.s2_tif),
-                        output_path=Path(args.out_tif)
-                    )
-                    logger.info("Fusão concluída! Ficheiro final: %s", out_path)
-                except Exception:
-                    logger.exception("Erro na fusão de dados")
-                    sys.exit(5)
-
-        case "all":
-            if not args.run:
-                logger.error("Usa --run para correr o pipeline completo.")
-                sys.exit(6)
-
-            logger.info("=== Pipeline unificado (S1 → S2 → Fusão) ===")
-
-            print("\n" + "-" * 60)
-            logger.info("[passo 1/3] Sentinel-1...")
-            s1_path = resolve_s1()
-            if not s1_path:
-                logger.error("S1 falhou — a abortar.")
-                sys.exit(2)
-
-            print("\n" + "-" * 60)
-            logger.info("[passo 2/3] Sentinel-2...")
-            s2_path = resolve_s2(imagens=args.imagens, out_dir=args.s2_out, threshold=args.threshold)
-            if not s2_path:
-                logger.error("S2 falhou — a abortar.")
-                sys.exit(4)
-
-            print("\n" + "-" * 60)
-            logger.info("[passo 3/3] Fusão...")
-            if not run_fusion(s1_path, s2_path, args.out_tif):
-                sys.exit(5)
 
         case "auto":
             s1_entry, s2_entry = acquireProductsS1_S2()

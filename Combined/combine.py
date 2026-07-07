@@ -129,6 +129,11 @@ def fuse_flood_outputs(
         progress_callback(1.0, "Fusão concluída")
 
     print(f"\n[FUSION] Concluído! Ficheiro de escala contínua guardado em: {output_path.name}")
-    print(f" -> Valores únicos gerados na fusão: {np.unique(fused_continuous)}")
+    unique_values = np.unique(fused_continuous)
+    formatted_values = [
+        str(int(value)) if np.isclose(value, round(float(value))) else f"{float(value):g}"
+        for value in unique_values
+    ]
+    print(f" -> Valores únicos gerados na fusão: [{', '.join(formatted_values)}]")
 
     return output_path
