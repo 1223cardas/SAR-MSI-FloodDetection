@@ -21,6 +21,7 @@ def processProducts(gptExec: list[str], entry: dict | None = None, progress_call
     output_naming, date, existing_tif = checkEntryInOutput(entry)
     
     if existing_tif is not None:
+        print(f"[INFO] TIF file already exists for {entry.get("place_name")} ")
         return existing_tif
 
     if entry.get("processed_at") != date:

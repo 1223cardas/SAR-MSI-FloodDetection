@@ -46,8 +46,6 @@ def resolve_s1(*, force: bool = False, entry: dict | None = None) -> Path | None
         return existing
 
     logger.info("[s1] a iniciar S1Processor e SNAP...")
-    sys.stdout.flush()
-    sys.stderr.flush()
 
     try:
         result = S1Processor().run(run_processing=True, view=False, entry=entry)
@@ -79,8 +77,6 @@ def resolve_s2(*, imagens: str = "Imagens", out_dir: str = "ndwi_work",
         return existing
 
     logger.info("[s2] a iniciar S2Processor...")
-    sys.stdout.flush()
-    sys.stderr.flush()
 
     try:
         result = S2Processor(

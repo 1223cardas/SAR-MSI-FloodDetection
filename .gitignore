@@ -6,6 +6,7 @@ __pycache__
 
 # Acquisition
 downloads
+*.csv
 
 # S1
 output
