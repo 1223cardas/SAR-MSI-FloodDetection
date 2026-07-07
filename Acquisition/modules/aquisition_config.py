@@ -18,7 +18,7 @@ S1_REPEAT_CYCLE_DAYS = 12
 # Minimum gap (days) the "before" image must sit ahead of the crisis date.
 # A reference image too close to the crisis date risks already showing
 # early flood onset (slow-building floods) or pre-event weather effects.
-MIN_BEFORE_BUFFER_DAYS = 3
+MIN_BEFORE_BUFFER_DAYS = 0
 
 # How many repeat cycles back to search for an orbit-matched "before" image
 # if none is found within the initial window.
