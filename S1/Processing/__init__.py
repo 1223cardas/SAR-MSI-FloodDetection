@@ -1,4 +1,4 @@
-from S1.Processing.modules import discovery, pclasses, pipeline, pipeline_utils, s1processing_config, paths, utils, product_utils, raster_utils, snap, masking
+from S1.Processing.modules import discovery, pclasses, pipeline, pipeline_utils, s1processing_config, paths, utils, product_utils, snap, masking
 
 __all__ = [
 	"discovery",
@@ -9,8 +9,6 @@ __all__ = [
 	"paths",
 	"utils",
 	"product_utils",
-	"raster_utils",
 	"snap",
-
 	"masking"
 ]

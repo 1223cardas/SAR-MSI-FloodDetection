@@ -1,11 +1,14 @@
 from pathlib import Path
 import numpy as np
 import rasterio
-from rasterio.windows import Window
-from scipy import ndimage
+import math
 from scipy.ndimage import gaussian_filter, label
+from rasterio.transform import array_bounds
 from scipy.interpolate import griddata
+from rasterio.crs import CRS
+from scipy import ndimage
 
+from .pclasses import ProductData
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
@@ -79,57 +82,66 @@ def compute_elevation_ceiling(data_folder: Path,
                                elev_name: str, lc_name: str,
                                out_tif: Path,
                                water_class: int = 80,
-                               tile_size: int = 512) -> Path:
-    """
-    Spatially adaptive elevation ceiling from permanent water pixels.
-    P95 elevation per tile → interpolated smooth surface.
-    Pixels above this surface are unlikely to be flooded.
-    """
-    if out_tif.exists():
-        return out_tif
+                               surge_buffer_m: float = 8.0) -> Path:
 
-    elev, meta, nd = _read_band(data_folder, elev_name)
-    lc, _, _       = _read_band(data_folder, lc_name)
+    elev_path = data_folder / elev_name
+    if not elev_path.exists() and not elev_name.endswith('.img'):
+        elev_path = data_folder / f"{elev_name}.img"
+
+    lc_path = data_folder / lc_name
+    if not lc_path.exists() and not lc_name.endswith('.img'):
+        lc_path = data_folder / f"{lc_name}.img"
+        
+    # Abrir e extrair apenas a matriz e a georreferenciação
+    with rasterio.open(elev_path) as src_eff:
+        elev = src_eff.read(1)
+        crs = src_eff.crs
+        transform = src_eff.transform
+        
+    with rasterio.open(lc_path) as src_lc:
+        lc = src_lc.read(1)
+        
     h, w = elev.shape
-    valid = np.isfinite(elev)
-    if nd is not None:
-        valid &= elev != nd
-
-    cy, cx, vals = [], [], []
-    for r in range(0, h, tile_size):
-        for c in range(0, w, tile_size):
-            th = min(tile_size, h - r)
-            tw = min(tile_size, w - c)
-            e_tile = elev[r:r+th, c:c+tw]
-            lc_tile = lc[r:r+th, c:c+tw]
-            v_tile = valid[r:r+th, c:c+tw]
-            water_elev = e_tile[(lc_tile == water_class) & v_tile]
-            if water_elev.size < 10:
-                continue
-            vals.append(float(np.percentile(water_elev, 95)))
-            cy.append(r + th / 2)
-            cx.append(c + tw / 2)
-
-    if not vals:
-        raise RuntimeError("No water pixels — cannot compute elevation ceiling.")
-
-    grid_y, grid_x = np.mgrid[0:h, 0:w]
-    points = np.column_stack([cy, cx])
-    fallback = float(np.median(vals))
-    if len(vals) >= 4:
-        surface = griddata(points, vals, (grid_y, grid_x),
-                           method="linear", fill_value=fallback)
+    fallback = float(np.nanmin(elev))
+    
+    # Isolar onde existe água permanente
+    water_mask = (lc == water_class) & (elev > -50)
+    
+    # Amostrar a imagem uniformemente (a cada 10 píxeis)
+    step = 10
+    y_indices, x_indices = np.where(water_mask[::step, ::step])
+    y_points = y_indices * step
+    x_points = x_indices * step
+    
+    vals = elev[y_points, x_points]
+    
+    if len(vals) >= 10:
+        grid_y, grid_x = np.mgrid[0:h, 0:w]
+        # Interpolação global contínua
+        surface = griddata((y_points, x_points), vals, (grid_y, grid_x),
+                           method="nearest")
     else:
         surface = np.full((h, w), fallback, dtype=np.float32)
-    surface = gaussian_filter(surface.astype(np.float32), sigma=3.0)
-
-    meta = meta.copy()
-    meta.update(driver="GTiff", dtype=rasterio.float32, count=1,
-                compress="deflate", tiled=True, blockxsize=512, blockysize=512)
+        
+    # Aplicar o buffer de cheia e suavizar a matriz completa
+    surface = surface + surge_buffer_m
+    surface = gaussian_filter(surface.astype(np.float32), sigma=40)
+    
+    meta = {
+        'driver': 'GTiff',
+        'dtype': rasterio.float32,
+        'nodata': np.nan,
+        'width': w,
+        'height': h,
+        'count': 1,
+        'crs': crs,
+        'transform': transform
+    }
+    
+    # Gravar o GeoTIFF real e padronizado
     with rasterio.open(out_tif, "w", **meta) as dst:
         dst.write(surface, 1)
-    print(f"|\tElevation ceiling written ({len(vals)} tiles, "
-          f"range [{min(vals):.1f}–{max(vals):.1f}] m)")
+        
     return out_tif
 
 
@@ -141,14 +153,13 @@ def compute_slope_mask(data_folder: Path, elev_name: str,
     if out_tif.exists():
         return out_tif
 
-    import math
     elev, meta, nd = _read_band(data_folder, elev_name)
     if nd is not None:
         elev[elev == nd] = np.nan
 
     res_x = abs(meta["transform"].a)
     res_y = abs(meta["transform"].e)
-    if meta.get("crs") and rasterio.crs.CRS.from_dict(meta["crs"]).is_geographic:
+    if meta.get("crs") and CRS.from_dict(meta["crs"]).is_geographic:
         lat = (meta["transform"].f + meta["transform"].e * elev.shape[0] / 2)
         lat_rad = math.radians(lat)
         R = 6378137.0
@@ -175,7 +186,7 @@ def compute_slope_mask(data_folder: Path, elev_name: str,
 # ── SNAP expression builder ─────────────────────────────────────────────────
 
 def build_snap_expressions(bands: dict, offset_vh: float, offset_vv: float,
-                            thresholds: dict) -> dict[str, str]:
+                           thresholds: dict) -> dict[str, str]:
     f = "4.342944819"
     vh_slv, vh_mst = bands["vh_slv"], bands["vh_mst"]
     vv_slv, vv_mst = bands["vv_slv"], bands["vv_mst"]
@@ -210,7 +221,7 @@ def compute_adaptive_thresholds(
     lc_name: str,
     offset_vh: float, offset_vv: float,
     n_sigma: float = 2.5,
-) -> dict[str, float]:
+) -> dict[str, tuple[float, float]]:
     """
     Compute scene-adaptive flood thresholds using urban pixels (class 50)
     as a stability reference.
@@ -251,15 +262,16 @@ def compute_adaptive_thresholds(
     mean_vh, std_vh = float(np.median(u_vh)), float(np.std(u_vh))
     mean_vv, std_vv = float(np.median(u_vv)), float(np.std(u_vv))
 
-    # Floor: never go above -3.5 dB even on very stable short-baseline scenes
-    thr_vh = np.clip(mean_vh - n_sigma * std_vh, -6.0, -3.5)
-    thr_vv = np.clip(mean_vv - n_sigma * std_vv, -6.0, -3.0)
+    # Floor: impede que os limiares se tornem um abismo intransponível
+    thr_vh = np.clip(mean_vh - n_sigma * std_vh, -5.2, -3.5)
+    thr_vv = np.clip(mean_vv - n_sigma * std_vv, -4.7, -3.0)
 
     # Forest and urban submersion need stricter thresholds
-    thr_forest_vh = np.clip(thr_vh - 0.5, -6.5, -4.0)
-    thr_forest_vv = np.clip(thr_vv - 0.5, -6.5, -3.5)
-    thr_urban_vh  = np.clip(thr_vh - 1.5, -7.0, -5.0)
-    thr_urban_vv  = np.clip(thr_vv - 1.5, -7.0, -5.0)
+    thr_forest_vh = np.clip(thr_vh - 0.5, -6.0, -4.0)
+    thr_forest_vv = np.clip(thr_vv - 0.5, -6.0, -3.5)
+
+    thr_urban_vh  = np.clip(thr_vh + 0.5, -4.5, -3.5)
+    thr_urban_vv  = np.clip(thr_vv + 0.5, -4.0, -3.0)
 
     print(f"|\tAdaptive thresholds (open land): VH < {thr_vh:.2f} dB, VV < {thr_vv:.2f} dB")
     print(f"|\tForest: VH < {thr_forest_vh:.2f}, VV < {thr_forest_vv:.2f}")
@@ -278,11 +290,8 @@ def compute_adaptive_thresholds(
 def export_clean_tif(flood_dim: Path, out_tif: Path,
                      min_blob_px: int = 500) -> None:
     """
-    Export the Flood band from SNAP .dim → cleaned uint8 GeoTIFF.
-
-    Encoding:  0 = dry (valid scene area)
-               1 = flood detected
-             255 = outside scene / nodata
+    Exporta apenas a máscara de inundação (Branco = 255).
+    O resto da imagem é classificado como NoData (Transparente = 0).
     """
     data_folder = Path(str(flood_dim).replace(".dim", ".data"))
     imgs = list(data_folder.glob("Flood*.img"))
@@ -290,34 +299,59 @@ def export_clean_tif(flood_dim: Path, out_tif: Path,
         raise FileNotFoundError(f"No Flood band in {data_folder}")
 
     with rasterio.open(imgs[0]) as src:
-        raw  = src.read(1)
+        raw: np.ndarray = src.read(1)
         meta = src.meta.copy()
 
     valid = np.isfinite(raw)
     flood = valid & (raw == 1)
 
-    # 5×5 binary opening removes isolated speckle lines and dots
-    clean = ndimage.binary_opening(flood, structure=np.ones((5, 5)))
+    # Filtragem morfológica
+    clean = ndimage.binary_opening(flood, structure=np.ones((5, 5), dtype=bool))
+    clean = ndimage.binary_closing(clean, structure=np.ones((3, 3), dtype=bool))
 
-    # Morphological closing to fill small holes inside flood regions
-    clean = ndimage.binary_closing(clean, structure=np.ones((3, 3)))
-
-    # Remove blobs smaller than min_blob_px (typically < 0.5 ha at 10 m)
-    labeled, n = label(clean)
-    if n > 0:
-        sizes = ndimage.sum(clean, labeled, range(1, n + 1))
+    # Remoção de pequenos blocos (ruído)
+    labeled, n = label(clean)  # type: ignore
+    if int(n) > 0:
+        sizes = ndimage.sum(clean, labeled, range(1, int(n) + 1))
         remove = np.where(np.array(sizes) < min_blob_px)[0] + 1
         clean[np.isin(labeled, remove)] = False
 
-    out = np.full(raw.shape, 255, dtype=np.uint8)  # nodata everywhere
-    out[valid] = 0                                   # valid area = dry
-    out[clean] = 1                                   # detected flood
+    # Começa tudo a 0 (que será definido como NoData)
+    out = np.full(raw.shape, 0, dtype=np.uint8)   
+    
+    # Onde for inundação, passa a 255 (Branco)
+    clean = np.asarray(clean, dtype=bool)
+    out[clean] = 255 
 
+    # Atualiza os metadados definindo explicitamente o 0 como NODATA
     meta.update(driver="GTiff", dtype=rasterio.uint8, count=1,
                 compress="deflate", tiled=True,
-                blockxsize=512, blockysize=512, nodata=255)
+                blockxsize=512, blockysize=512, nodata=0) # <--- Muito importante
+                
     with rasterio.open(out_tif, "w", **meta) as dst:
         dst.write(out, 1)
+
     print(f"|\tFlood mask exported: {out_tif}")
     n_flood = int(clean.sum())
     print(f"|\tFlooded pixels: {n_flood:,}")
+
+
+# ── FloodArea ─────────────────────────────────────────────────────────
+
+def computeFloodArea(data: ProductData) -> tuple[float, float, float]:
+    """Compute flood pixel count, pixel area (m²), and total flooded area (m²)."""
+    flood_mask  = (~data.band.mask) & (data.band.data == 1)
+    clean_mask  = ndimage.binary_opening(flood_mask, structure=np.ones((3, 3)))
+    flood_count = int(np.count_nonzero(clean_mask))
+
+    if data.crs and data.crs.is_geographic:
+        bounds      = array_bounds(data.height, data.width, data.transform)
+        lat_rad     = math.radians((bounds[1] + bounds[3]) / 2.0)
+        R           = 6378137.0
+        m_per_deg_lon = math.pi / 180.0 * R * math.cos(lat_rad)
+        m_per_deg_lat = math.pi / 180.0 * R
+        px_area_m2  = abs(data.transform.a * m_per_deg_lon * data.transform.e * m_per_deg_lat)
+    else:
+        px_area_m2  = abs(data.transform.a * data.transform.e)
+
+    return flood_count, px_area_m2, flood_count * px_area_m2

@@ -114,3 +114,10 @@ def list_bands(dim_path: Path) -> list[str]:
         for el in root.findall(".//Spectral_Band_Info/BAND_NAME")
         if el.text
     ]
+
+
+def displayResults(flood_count: float, px_area_m2: float, total_area_m2: float) -> None:
+    print("\n--- Flood Calculation Results ---")
+    print(f"Number of Flooded Pixels: {flood_count:,}")
+    print(f"Estimated Pixel Size:     ~{px_area_m2:,.2f} m²")
+    print(f"Total Flooded Area:       {total_area_m2:,.2f} m²  ({total_area_m2 / 1_000_000:.3f} km²)")

@@ -50,6 +50,7 @@ def check_directories() -> dict[str, Path]:
     )
 
     cleanupProcessingInCache()
+    cleanupTIFSInCache()
     ensureDirsExist()
 
     print("Done.")
@@ -82,18 +83,31 @@ def build_output_file(base_name: str) -> Path:
 
 
 def checkEntryInOutput(entry: dict) -> tuple[str, str, Path | None]:
-    dt_str = format(datetime.now(), '%Y-%m-%d_%H-%M-%S')
     stored_date: str = entry.get("processed_at", "")
 
-    date = stored_date if stored_date != "" else dt_str
-    entry_naming = f"{entry.get('place_query')}_{date}_flood"
+    dt_str = format(datetime.now(), '%Y-%m-%d_%H-%M-%S')
+    new_naming = f"{entry.get('place_query')}_{dt_str}_flood"
 
+    if stored_date == "":
+        return new_naming, dt_str, None
+
+    entry_naming = f"{entry.get('place_query')}_{stored_date}_flood"
+
+    filecount = 0
     expected_tif = build_output_file(entry_naming + ".tif")
     expected_data = build_output_file(entry_naming + ".dim")
     expected_dim = build_output_file(entry_naming + ".dim")
 
-    if all(p.exists() for p in [expected_tif, expected_data, expected_dim]):
-        print("Skipping processing for this entry.")
-        return entry_naming, date, expected_tif
+    for f in (expected_tif, expected_data, expected_dim):
+        if f.exists(): filecount += 1
 
-    return entry_naming, date, None
+    if filecount == 0:
+        return new_naming, dt_str, None
+
+    if filecount == 3:
+        return entry_naming, stored_date, expected_tif
+    else:
+        return entry_naming, stored_date, None
+
+
+    

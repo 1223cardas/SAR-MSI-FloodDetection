@@ -3,13 +3,11 @@ from pathlib import Path
 from .pclasses import Product
 from .paths import build_cache_file, build_output_file
 from .discovery import discoverProducts, discoverAOI, getProductFile
-# from .product_utils import computeWorkflowVariables
-from .raster_utils import convertFileToTif
 from .pipeline_utils import setupExecution, checkSuffixForFile
 from .utils import refactor_snap_product
 
-from .product_utils import computeWorkflowVariables   # keep — but its contents change
-from .masking import export_clean_tif                 # replaces convertFileToTif
+from .product_utils import computeWorkflowVariables
+from .masking import export_clean_tif
 
 def runProcessing(entry: dict, gptExec: list[str]) -> list[Product]:
     area_of_interest = discoverAOI(entry)

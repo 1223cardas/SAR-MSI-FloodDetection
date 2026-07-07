@@ -1,14 +1,15 @@
 .env
 .venv
+
 __pycache__
 .pytest_cache
 
+# Acquisition
+downloads
+
+# S1
 output
 processing_cache
 
-out
+# S2
 ndwi_work
-Imagens
-cache
-data
-downloads

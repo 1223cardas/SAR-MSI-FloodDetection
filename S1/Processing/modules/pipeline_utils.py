@@ -11,6 +11,8 @@ class Msg:
 
 
 def getMsg(mode: str) -> Msg | None:
+	success = error = ""
+
 	match(mode):
 		case "singleProductProcessing":
 			success = "Successfully processed product.\n"
