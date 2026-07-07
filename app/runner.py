@@ -154,7 +154,6 @@ class RunController:
             print("A iniciar Sentinel-2...")
             threshold = float(field("threshold")) if field("threshold") else None
             result = S2Processor(
-                imagens_dir=field("s2_dir"),
                 out_dir=field("s2_out"),
                 preview=False,
                 threshold=threshold,
@@ -206,7 +205,6 @@ class RunController:
             if hasS2:
                 threshold = float(field("threshold")) if field("threshold") else None
                 result = S2Processor(
-                    imagens_dir=field("s2_dir"),
                     out_dir=field("s2_out"),
                     preview=False,
                     threshold=threshold,

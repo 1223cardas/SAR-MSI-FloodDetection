@@ -4,7 +4,7 @@ Projeto para detecção de inundação usando produtos Sentinel-1 (SAR) e Sentin
 
 ## Visão geral
 - `S1/` — pipelines e workflows SNAP (GPT) para pré-processamento e máscara de inundação (gera `.dim` e `floodImage*.tif`).
-- `S2/` — pipeline NDWI baseado em `rasterio` que gera `flood.tif` em uma workspace (padrão `ndwi_work`).
+- `S2/` — pipeline NDWI baseado em `rasterio` que gera `flood.tif` em `S2/output/`.
 - `main.py` — CLI unificada para executar S1 e S2.
 - `processors.py` — interfaces `Processor` para modularidade e testabilidade.
 
@@ -127,7 +127,7 @@ python -m pytest -v
 - **Solution**: Place `.SAFE` or `.zip` Sentinel-1 products in `S1/data/products/`
 
 **Issue**: `No B03/B08 10m pairs found`
-- **Solution**: Place Sentinel-2 `.SAFE` folders in `Imagens/` directory
+- **Solution**: Place Sentinel-2 `.SAFE` folders in `downloads/` directory
 
 ## Development Workflow
 

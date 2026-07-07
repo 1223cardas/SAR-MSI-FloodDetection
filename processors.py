@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
+import re
 import threading
 from typing import Any, Callable, Optional
 
+from Acquisition.modules.search_log import updateLogEntry
 from S2 import discovery as s2_discovery
 from S2 import pipeline as s2_pipeline
 from S2 import preview as s2_preview
@@ -16,6 +19,31 @@ from S1.Processing import snap, paths
 class ProcessorResult:
     name: str
     output_path: Path | None = None
+
+
+def _slugify_filename(value: str) -> str:
+    text = re.sub(r"[^\w.-]+", "_", (value or "").strip(), flags=re.UNICODE)
+    text = re.sub(r"_+", "_", text).strip("._")
+    return text or "s2"
+
+
+def _entry_timestamp(entry: dict | None = None) -> str:
+    if entry:
+        processed_at = str(entry.get("processed_at", "")).strip()
+        if processed_at:
+            return processed_at
+    return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+
+def build_s2_output_path(out_dir: str | Path, entry: dict | None = None, threshold: float | None = None) -> Path:
+    base_dir = Path(out_dir)
+    if not entry:
+        return base_dir / "flood.tif"
+
+    place_query = _slugify_filename(str(entry.get("place_query", "")))
+    timestamp = _slugify_filename(_entry_timestamp(entry))
+    stem = f"{place_query}_{timestamp}_flood"
+    return base_dir / f"{stem}.tif"
 
 
 class Processor(ABC):
@@ -129,20 +157,50 @@ class S2Processor(Processor):
 
     def __init__(
         self,
-        imagens_dir: str = "Imagens",
-        out_dir: str = "ndwi_work",
+        out_dir: str = "S2/output",
         preview: bool = False,
         threshold: float | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
-        self.imagens_dir = imagens_dir
         self.out_dir     = out_dir
         self.preview     = preview
         self.threshold   = threshold
 
+    def _cached_output(self, entry: dict | None = None) -> Path:
+        return build_s2_output_path(self.out_dir, entry=entry, threshold=self.threshold)
+
+    def _resolve_entry(self, entry: dict | None) -> dict | None:
+        if entry is not None:
+            return entry
+
+        resolved = s2_discovery.getEntry()
+        if resolved is None:
+            return None
+        return resolved if isinstance(resolved, dict) else resolved.to_dict()
+
+    def _ensure_processing_timestamp(self, entry: dict) -> dict:
+        if str(entry.get("processed_at", "")).strip():
+            return entry
+
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        updated_entry = dict(entry)
+        updated_entry["processed_at"] = timestamp
+
+        try:
+            updateLogEntry(entry, {"processed_at": timestamp})
+        except Exception:
+            pass
+
+        return updated_entry
+
     def run(self, run_processing: bool, view: bool, entry = None) -> ProcessorResult:
         output_path = None
+        resolved_entry = self._resolve_entry(entry)
+        if resolved_entry is not None:
+            resolved_entry = self._ensure_processing_timestamp(resolved_entry)
+
+        cached_output = self._cached_output(resolved_entry)
 
         try:
             self._progress(0.0, "Iniciando S2")
@@ -151,8 +209,13 @@ class S2Processor(Processor):
                 if self._check():
                     return self._abort("Cancelado antes de iniciar S2")
 
+                if cached_output.exists():
+                    self._progress(1.0, "S2 concluído")
+                    print(f"[s2] a usar ficheiro existente: {cached_output}")
+                    return ProcessorResult(name=self._name, output_path=cached_output)
+
                 self._progress(0.1, "A descobrir produtos S2")
-                before, after = s2_discovery.discover_all_band_pairs(self.imagens_dir, entry)
+                before, after = s2_discovery.discover_all_band_pairs("downloads", resolved_entry)
 
                 if self._check():
                     return self._abort("Cancelado após descoberta S2")
@@ -162,6 +225,7 @@ class S2Processor(Processor):
                     before,
                     after,
                     self.out_dir,
+                    output_name=cached_output.name,
                     preview=self.preview,
                     threshold=self.threshold,
                     progress_callback=self._progress_cb,
@@ -174,19 +238,17 @@ class S2Processor(Processor):
 
                 self._progress(0.9, "Pipeline S2 concluído")
 
-                candidate = Path(self.out_dir) / "flood.tif"
-                if candidate.exists():
-                    output_path = candidate
+                if cached_output.exists():
+                    output_path = cached_output
 
             if view and not output_path:
-                candidate = Path(self.out_dir) / "flood.tif"
-                if not candidate.exists():
-                    raise FileNotFoundError(f"S2 flood.tif não encontrado em '{self.out_dir}'")
-                output_path = candidate
+                if not cached_output.exists():
+                    raise FileNotFoundError(f"S2 output não encontrado em '{self.out_dir}'")
+                output_path = cached_output
 
             if self.preview and not run_processing:
                 try:
-                    s2_preview.preview_outputs_only(self.out_dir, threshold=self.threshold)
+                    s2_preview.preview_outputs_only(self.out_dir, threshold=self.threshold, flood_path=cached_output)
                     preview_candidate = Path(self.out_dir) / "preview.png"
                     if preview_candidate.exists():
                         output_path = preview_candidate

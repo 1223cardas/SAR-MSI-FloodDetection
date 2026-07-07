@@ -46,6 +46,7 @@ def run_pipeline(
     before,
     after,
     work,
+    output_name="flood.tif",
     preview=False,
     threshold=None,
     progress_callback=None,
@@ -160,7 +161,7 @@ def run_pipeline(
     # Grava o flood.tif como Float32 para aguentar os novos decimais da SCL
     profile_flood = profile.copy()
     profile_flood.update(dtype="float32")
-    write_raster(os.path.join(work, "flood.tif"), flood, profile_flood, 0.0)
+    write_raster(os.path.join(work, output_name), flood, profile_flood, 0.0)
     stats(flood, "NEW FLOOD WITH SCL VALUES", 0.0)
     _emit(progress_callback, 0.9, "Flood calculado e guardado")
     if _should_stop(stop_event, pause_event):
@@ -176,7 +177,7 @@ def run_pipeline(
     area_flood = compute_binary_area(flood_binary, transform)
     _print_area("Water BEFORE", area_before)
     _print_area("Water AFTER ", area_after)
-    _print_area("New FLOOD   ", area_flood)
+    _print_area("FLOOD   ", area_flood)
 
     if preview:
         _emit(progress_callback, 0.95, "A gerar preview")

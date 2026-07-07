@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
@@ -142,18 +143,30 @@ def show_preview_window(
     plt.close(fig)
 
 
-def load_preview_results(work):
+def load_preview_results(work, flood_path=None):
     ndwi_before, _ = read_raster(os.path.join(work, "ndwi_before.tif"))
     ndwi_after, _ = read_raster(os.path.join(work, "ndwi_after.tif"))
     water_before, _ = read_raster(os.path.join(work, "water_before.tif"))
     water_after, _ = read_raster(os.path.join(work, "water_after.tif"))
-    flood, _ = read_raster(os.path.join(work, "flood.tif"))
+    if flood_path is not None:
+        flood, _ = read_raster(str(flood_path))
+        return ndwi_before, ndwi_after, water_before, water_after, flood
+
+    flood_candidates = list(Path(work).glob("*_flood.tif"))
+    legacy_candidate = Path(work) / "flood.tif"
+    if legacy_candidate.exists():
+        flood_candidates.append(legacy_candidate)
+
+    if not flood_candidates:
+        raise FileNotFoundError(f"No flood output found in {work}")
+    latest_candidate = max(flood_candidates, key=lambda path: path.stat().st_mtime)
+    flood, _ = read_raster(str(latest_candidate))
     return ndwi_before, ndwi_after, water_before, water_after, flood
 
 
-def preview_outputs_only(work, threshold=None):
+def preview_outputs_only(work, threshold=None, flood_path=None):
     preview_path = os.path.join(work, "preview.png")
-    ndwi_before, ndwi_after, water_before, water_after, flood = load_preview_results(work)
+    ndwi_before, ndwi_after, water_before, water_after, flood = load_preview_results(work, flood_path=flood_path)
 
     if threshold is None:
         threshold = compute_optimal_threshold(ndwi_before, ndwi_after)

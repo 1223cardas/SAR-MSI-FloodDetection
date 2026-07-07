@@ -1,7 +1,9 @@
 import numpy as np
+from unittest.mock import patch
 
 from S2.config import EPS, NDWI_THRESHOLD, NODATA_VALUE, SCALE_FACTOR
 from S2.processing import compute_binary_area, compute_ndwi, flood_map, water_mask
+from processors import S2Processor, build_s2_output_path
 
 
 def test_compute_ndwi_marks_nodata_and_uses_scaled_values():
@@ -55,3 +57,22 @@ def test_compute_binary_area_counts_pixels():
     result = compute_binary_area(mask, DummyTransform())
 
     assert result == 300.0
+
+
+def test_s2_processor_reuses_existing_flood_output(tmp_path):
+    entry = {"place_query": "Kherson", "crisis_date": "2023-06-06", "processed_at": "2026-07-07_12-34-56"}
+    cached_output = build_s2_output_path(tmp_path, entry=entry, threshold=None)
+    cached_output.touch()
+
+    with patch("processors.s2_discovery.discover_all_band_pairs") as mock_discovery, patch(
+        "processors.s2_pipeline.run_pipeline"
+    ) as mock_pipeline:
+        result = S2Processor(out_dir=str(tmp_path), preview=False).run(
+            run_processing=True,
+            view=False,
+            entry=entry,
+        )
+
+    assert result.output_path == cached_output
+    mock_discovery.assert_not_called()
+    mock_pipeline.assert_not_called()

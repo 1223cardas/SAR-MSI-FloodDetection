@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from processors import S1Processor, S2Processor
+from processors import build_s2_output_path
 from Combined.combine import fuse_flood_outputs
 from Acquisition.acquireProducts import acquireProductsS1_S2
 
@@ -63,14 +64,18 @@ def resolve_s1(*, force: bool = False, entry: dict | None = None) -> Path | None
     return None
 
 
-def resolve_s2(*, imagens: str = "Imagens", out_dir: str = "ndwi_work",
+def resolve_s2(*, out_dir: str = "S2/output",
                threshold: float | None = None, force: bool = False, entry: dict | None = None) -> Path | None:
     """
     Resolve o TIF de output do Sentinel-2.
     Mesma lógica de reutilização/salvaguarda que o resolve_s1.
     """
     s2_out_dir = Path(out_dir)
-    existing = _find_latest_tif(s2_out_dir, "*flood*.tif")
+    expected = build_s2_output_path(s2_out_dir, entry=entry, threshold=threshold)
+    existing = expected if expected.exists() else None
+
+    if existing is None and entry is None:
+        existing = _find_latest_tif(s2_out_dir, "*flood*.tif")
 
     if existing and not force and _ask_reuse(existing, "S2"):
         logger.info("[s2] a usar ficheiro existente.")
@@ -80,7 +85,6 @@ def resolve_s2(*, imagens: str = "Imagens", out_dir: str = "ndwi_work",
 
     try:
         result = S2Processor(
-            imagens_dir=imagens,
             out_dir=out_dir,
             preview=False,
             threshold=threshold,
@@ -140,26 +144,23 @@ def build_parser():
 
     # Pipeline Sentinel-2
     s2 = sub.add_parser("s2", help="Sentinel-2 pipeline")
-    s2.add_argument("--imagens", default="Imagens")
-    s2.add_argument("--s2-out", default="ndwi_work")
+    s2.add_argument("--s2-out", default="S2/output")
     s2.add_argument("--threshold", type=float, default=None)
 
     # Pipeline de Fusão Isolada
     fusion = sub.add_parser("fusion", help="Sentinel-1 and Sentinel-2 Data Fusion pipeline")
     fusion.add_argument("--s1-tif", default="S1/output/Kherson_2026-06-06_15-17-32_flood.tif", help="Path to Sentinel-1 flood binary water mask TIF")
-    fusion.add_argument("--s2-tif", default="ndwi_work/flood.tif", help="Path to Sentinel-2 flood SCL-weighted TIF")
+    fusion.add_argument("--s2-tif", default="", help="Path to Sentinel-2 flood SCL-weighted TIF")
     fusion.add_argument("--out-tif", default="flood_fused_continuous.tif", help="Path for the final output TIF")
 
     # Pipeline Completo Automático (S1 + S2 + Fusão de uma vez com bypass inteligente)
     total = sub.add_parser("all", help="Run complete S1 + S2 + Fusion pipeline automatically")
-    total.add_argument("--imagens", default="Imagens")
-    total.add_argument("--s2-out", default="ndwi_work")
+    total.add_argument("--s2-out", default="S2/output")
     total.add_argument("--threshold", type=float, default=None)
     total.add_argument("--out-tif", default="flood_fused_continuous.tif")
 
     auto = sub.add_parser("auto", help="Run program with available data for the given request")
-    auto.add_argument("--imagens", default="Imagens")
-    auto.add_argument("--s2-out", default="ndwi_work")
+    auto.add_argument("--s2-out", default="S2/output")
     auto.add_argument("--threshold", type=float, default=None)
     auto.add_argument("--out-tif", default="flood_fused_continuous.tif")
 
@@ -184,7 +185,6 @@ def main():
             logger.info("A preparar Sentinel-2...")
             try:
                 result = S2Processor(
-                    imagens_dir=args.imagens,
                     out_dir=args.s2_out,
                     preview=args.view,
                     threshold=args.threshold,
@@ -201,7 +201,11 @@ def main():
                 logger.warning("Preview não implementado para a fusão.")
                 return
             if args.run:
-                if not run_fusion(Path(args.s1_tif), Path(args.s2_tif), args.out_tif):
+                s2_candidate = Path(args.s2_tif) if args.s2_tif else _find_latest_tif(Path("S2/output"), "*_flood.tif")
+                if s2_candidate is None:
+                    logger.error("Nenhum output do S2 encontrado para a fusão.")
+                    sys.exit(5)
+                if not run_fusion(Path(args.s1_tif), s2_candidate, args.out_tif):
                     sys.exit(5)
 
         case "auto":
@@ -217,7 +221,6 @@ def main():
 
             s1_path = resolve_s1(force=True, entry=s1_entry.to_dict()) if hasS1 else None
             s2_path = resolve_s2(  
-                imagens=args.imagens,
                 out_dir=args.s2_out,
                 threshold=args.threshold,
                 force=True,
