@@ -2,7 +2,7 @@ from pathlib import Path
 import csv
 
 from .aclasses import LogEntry
-from . import aquisition_config
+from .acquisition_config import *
 from mainconfig import LOG_PATH
 
 
@@ -41,10 +41,7 @@ def updateLogEntry(entryDict: dict, item: dict):
 			rows.append(row)
 
 	with LOG_PATH.open("w", newline="", encoding="utf-8") as csvWrite:
-		writer = csv.DictWriter(
-			csvWrite,
-			fieldnames=aquisition_config.CSV_FIELDNAMES
-		)
+		writer = csv.DictWriter(csvWrite, fieldnames=CSV_FIELDNAMES)
 
 		writer.writeheader()
 		writer.writerows(rows)
@@ -52,7 +49,7 @@ def updateLogEntry(entryDict: dict, item: dict):
 
 def writeToFile(entry: LogEntry, is_new: bool):
 	with LOG_PATH.open("a", newline="", encoding="utf-8") as csvWrite:
-		writer = csv.DictWriter(csvWrite, fieldnames=aquisition_config.CSV_FIELDNAMES)
+		writer = csv.DictWriter(csvWrite, fieldnames=CSV_FIELDNAMES)
 		if is_new: writer.writeheader()
 		writer.writerow(entry.to_dict())
 		print("Log saved to:", LOG_PATH)

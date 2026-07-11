@@ -1,147 +1,78 @@
-from .modules.aclasses import LogEntry, Product
-from .modules.regiongeocoding import getRegion
-from .modules.regiontimestamp import getTimeSeries
-from .modules.request import requestProducts
-from .modules.download import queueProductsForDownload
+from collections import defaultdict
+
+from .modules.acquisition_config import S1_COLLECTION, S2_COLLECTION
 from .modules.search_log import saveLogEntry, load_search_log
-from .modules.aquisition_config import S1_COLLECTION, S2_COLLECTION
+from .modules.download import queueProductsForDownload
+from .modules.regiontimestamp import getTimeSeries
+from .modules.regiongeocoding import getRegion
+from .modules.request import requestProducts
+from .modules.aclasses import LogEntry
+from .modules.utils import *
 from mainconfig import input
 
 
-def ellipsize(s: str, left: int = 15, right: int = 12, placeholder: str = '(...)') -> str:
-	if s is None:
-		return s
-	s = str(s)
-	if len(s) <= left + right + len(placeholder):
-		return s
-	return s[:left] + placeholder + s[-right:]
+def _getList(entries: list[LogEntry], mode: str) -> list:
+    res = []
+    if mode == "single":
+        res = entries
+        displayEntries(entries)
+    elif mode == "auto":
+        region_map: dict[str, dict[str, LogEntry]] = defaultdict(dict)
+
+        for entry in entries:
+            region_key = f"{entry.place_name}|{entry.crisis_date}"
+            region_map[region_key][entry.collection] = entry
+
+        complete_regions = {
+            key: cols
+            for key, cols in region_map.items()
+            if S1_COLLECTION in cols and S2_COLLECTION in cols
+        }
+        res = list(complete_regions.items())
+        displayEntriesS1S2(res)
+    
+    return res
 
 
-def printEntries(entries: list[LogEntry], entryType: str, mode: str = "single") -> LogEntry | str:
-	while True:
-		for idx, entry in enumerate(entries, start=1):
-			print(f"\n[{idx}]:\tPlace: {entry.place_name}")
-			print(f" |\tCrisis Date: {entry.crisis_date}")
-			print(f" |\tBBox: {entry.bbox}")
-			print(f" |\tBefore Product ID: {ellipsize(entry.beforeId)}")
-			print(f" |\tAfter Product ID: {ellipsize(entry.afterId)}\n")
+def _printEntries(entries: list[LogEntry], entryTypes: list[str], mode: str = "single") -> LogEntry | tuple[LogEntry, LogEntry]:
+    while True:
+        entries_list = _getList(entries, mode)
 
-		choice = input("Enter the number of the log entry to process ('q' to quit, 0 to create a new entry): ")
-		if choice.lower() == 'q':
-			print("Exiting.")
-			exit(1)
-		
-		if choice == '0':
-			print("Creating a new log entry.")
-			if mode == "auto":
-				acquireProductsS1_S2()
-				updated_entries = [e for e in load_search_log() if e.collection in (S1_COLLECTION, S2_COLLECTION)]
-			else:
-				acquireProducts(entryType)
-				updated_entries = [e for e in load_search_log() if e.collection == entryType]
-			# Recarrega o log e recomeça o loop
-			return printEntries(updated_entries, entryType, mode)
+        choice = input("Enter the number of the log entry to process ('q' to quit, 0 to create a new entry): ")
+        if choice.lower() == 'q':
+            print("Exiting.")
+            exit(1)
+        
+        if choice == '0':
+            print("Creating a new log entry.")
+            if mode == "auto":
+                acquireProductsS1_S2()
+            else:
+                acquireProducts(entryTypes[0])
+            
+            # Reload and continue the loop seamlessly with updated entries
+            entries = [e for e in load_search_log() if e.collection in entryTypes]
+            continue
 
-		try:
-			idx_int = int(choice)
-			if idx_int not in range(1, len(entries) + 1):
-				print("Invalid choice. Try again.")
-				continue
+        try:
+            idx_int = int(choice)
+            if idx_int not in range(1, len(entries_list) + 1):
+                print("Invalid choice. Try again.")
+                continue
 
-			return entries[idx_int - 1]
-		except ValueError:
-			print("Invalid input. Please enter a number corresponding to a log entry or 'q' to quit.")
+            selected = entries_list[idx_int - 1]
 
+            if mode == "auto":
+                _, cols = selected
+                return cols[S1_COLLECTION], cols[S2_COLLECTION]
+            
+            return selected
 
-def acquireProducts(productType: str) -> LogEntry:
-	entry = LogEntry(collection=productType)
-	getRegion(entry)
-	getTimeSeries(entry)
-	products = requestProducts(entry, productType)
-	if len(products) != 2:
-		print("Product acquisition failed. No products will be queued for download.")
-		saveLogEntry(entry)
-		return entry
-
-	saveLogEntry(entry)
-	queueProductsForDownload(products)
-	return entry
+        except ValueError:
+            print("Invalid input. Please enter a number corresponding to a log entry or 'q' to quit.")
 
 
-def acquireProductsS1_S2() -> tuple[LogEntry, LogEntry]:
-	entries: list[LogEntry] = load_search_log()
-
-	if entries:
-		# Agrupa por região (place_name + crisis_date como chave)
-		from collections import defaultdict
-		region_map: dict[str, dict[str, LogEntry]] = defaultdict(dict)
-
-		for entry in entries:
-			region_key = f"{entry.place_name}|{entry.crisis_date}"
-			region_map[region_key][entry.collection] = entry
-
-		# Filtra apenas regiões com ambas as coleções
-		complete_regions = {
-			key: cols
-			for key, cols in region_map.items()
-			if S1_COLLECTION in cols and S2_COLLECTION in cols
-		}
-
-		if complete_regions:
-			print("\nRegiões com dados de ambos os satélites encontradas:\n")
-			region_list = list(complete_regions.items())
-
-			for idx, (key, cols) in enumerate(region_list, start=1):
-				s1 = cols[S1_COLLECTION]
-				print(f"[{idx}]:\tPlace: {s1.place_name}")
-				print(f" |\tCrisis Date: {s1.crisis_date}")
-				print(f" |\tBBox: {s1.bbox}")
-				print(f" |\tS1 Before: {ellipsize(cols[S1_COLLECTION].beforeId)}")
-				print(f" |\tS1 After:  {ellipsize(cols[S1_COLLECTION].afterId)}")
-				print(f" |\tS2 Before: {ellipsize(cols[S2_COLLECTION].beforeId)}")
-				print(f" |\tS2 After:  {ellipsize(cols[S2_COLLECTION].afterId)}\n")
-
-			while True:
-				choice = input("Escolhe uma região (0 para criar nova entrada, 'q' para sair): ")
-
-				if choice == 'q':
-					exit(0)
-
-				if choice == '0':
-					break  # segue para nova aquisição
-
-				try:
-					idx_int = int(choice)
-					if idx_int not in range(1, len(region_list) + 1):
-						print("Escolha inválida. Tenta novamente.")
-						continue
-
-					_, cols = region_list[idx_int - 1]
-					s1_entry = cols[S1_COLLECTION]
-					s2_entry = cols[S2_COLLECTION]
-
-					products = s1_entry.productFromIds() + s2_entry.productFromIds()
-					queueProductsForDownload(products)
-
-					return s1_entry, s2_entry
-				except ValueError:
-					print("Input inválido. Insere um número ou 'q'.")
-
-
-	print("A iniciar nova aquisição para S1 e S2...")
-	entry = LogEntry()
-	getRegion(entry)
-	getTimeSeries(entry)
-
-	s1_entry = setupEntry(entry, S1_COLLECTION)
-	s2_entry = setupEntry(entry, S2_COLLECTION)
-
-	queueProductsForDownload(s1_entry.productFromIds() + s2_entry.productFromIds())
-
-	return s1_entry, s2_entry
-
-
-def setupEntry(entry: LogEntry, collection: str) -> LogEntry:
+def _setupEntry(entry: LogEntry, collection: str) -> LogEntry:
 	resultEntry = entry
 	resultEntry.collection = collection
 	print(f"Checking for products using {collection}")
@@ -155,65 +86,78 @@ def setupEntry(entry: LogEntry, collection: str) -> LogEntry:
 	return resultEntry
 
 
+def acquireProducts(productType: str) -> LogEntry:
+	entry = LogEntry(collection=productType)
+	getRegion(entry)
+	getTimeSeries(entry)
+
+	entry = _setupEntry(entry, productType)
+
+	queueProductsForDownload(entry.productFromIds())
+	return entry
+
+
+def acquireProductsS1_S2() -> tuple[LogEntry, LogEntry]:
+	entry = LogEntry()
+	getRegion(entry)
+	getTimeSeries(entry)
+
+	s1_entry = _setupEntry(entry, S1_COLLECTION)
+	s2_entry = _setupEntry(entry, S2_COLLECTION)
+
+	queueProductsForDownload(s1_entry.productFromIds() + s2_entry.productFromIds())
+	return s1_entry, s2_entry
+
+
+def _getEntryFromLog(entryTypes: list[str], auto_pair: bool = False) -> LogEntry | tuple[LogEntry, LogEntry]:
+    mode = "auto" if auto_pair else "single"
+
+    # Consolidate log checking and product acquisition loop
+    while True:
+        entries = load_search_log()
+        type_entries = [e for e in entries if e.collection in entryTypes]
+
+        if type_entries:
+            if mode == "auto":
+                # Verify that at least one complete S1/S2 pair actually exists before proceeding
+                region_map = defaultdict(dict)
+                for entry in type_entries:
+                    region_key = f"{entry.place_name}|{entry.crisis_date}"
+                    region_map[region_key][entry.collection] = entry
+                
+                has_pairs = any(S1_COLLECTION in cols and S2_COLLECTION in cols for cols in region_map.values())
+                if not has_pairs:
+                    print("No complete S1/S2 pairs found. Running acquisition...")
+                    acquireProductsS1_S2()
+                    continue
+            break
+
+        print("No log entries found for the specified product type(s). Running acquisition...")
+        if len(entryTypes) > 1:
+            acquireProductsS1_S2()
+        else:
+            acquireProducts(entryTypes[0])
+
+    selected_entry = _printEntries(type_entries, entryTypes, mode=mode)
+    
+    if isinstance(selected_entry, tuple):
+        bef, aft = selected_entry
+        queueProductsForDownload(bef.productFromIds() + aft.productFromIds())
+    elif selected_entry:
+        queueProductsForDownload(selected_entry.productFromIds())
+    
+    return selected_entry
+
+
 def acquireEntryFromLog(entryType: str) -> LogEntry | None:
-	entries: list[LogEntry] = load_search_log()
-
-	if not entries:
-		print("No log entries found. Running product acquisition to create a new log entry.")
-		return acquireProducts(entryType)
-
-	typeEntries: list[LogEntry] = [e for e in entries if e.collection == entryType]
-
-	if not typeEntries:
-		print("No log entries found for the specified product type.")
-		return acquireProducts(entryType)
-
-	entry = printEntries(typeEntries, entryType, mode="single")
-	if isinstance(entry, str):
-		return None
-
-	try:
-		selected_entry = entry
-	except (IndexError, ValueError):
-		print("Invalid choice. Exiting.")
-		return None
-
-	queueProductsForDownload(selected_entry.productFromIds())
-	return selected_entry
+    entry = _getEntryFromLog([entryType])
+    if not isinstance(entry, LogEntry):
+        return None
+    return entry
 
 
-def acquireEntryFromLogWithBoth(entryTypes: list[str]) -> LogEntry | None:
-	entries: list[LogEntry] = load_search_log()
-
-	if not entries:
-		print("No log entries found. Running product acquisition to create a new log entry.")
-		acquireProductsS1_S2()
-		entries = load_search_log()  # Recarrega após aquisição
-
-	# Filtra entradas que pertençam a qualquer uma das coleções pedidas
-	typeEntries: list[LogEntry] = [e for e in entries if e.collection in entryTypes]
-
-	if not typeEntries:
-		print("No log entries found for the specified product types. Queueing product acquisition...")
-		acquireProductsS1_S2()
-		entries = load_search_log()
-		typeEntries = [e for e in entries if e.collection in entryTypes]
-
-	if not typeEntries:
-		print("Still no entries found after acquisition. Exiting.")
-		return None
-
-	# Usa o primeiro tipo como label para o menu (só para display)
-	label = entryTypes[0] if entryTypes else ""
-	entry = printEntries(typeEntries, label, mode="auto")
-	if isinstance(entry, str):
-		return None
-
-	try:
-		selected_entry = entry
-	except (IndexError, ValueError):
-		print("Invalid choice. Exiting.")
-		return None
-
-	queueProductsForDownload(selected_entry.productFromIds())
-	return selected_entry
+def acquireEntryFromLogWithBoth() -> tuple[LogEntry, LogEntry] | None:
+    entries = _getEntryFromLog([S1_COLLECTION, S2_COLLECTION], auto_pair= True)
+    if isinstance(entries, LogEntry):
+        return None
+    return entries

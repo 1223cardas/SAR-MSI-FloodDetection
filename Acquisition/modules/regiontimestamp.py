@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta
 
 from .aclasses import TimeFrame, LogEntry
-from . import aquisition_config
+from .acquisition_config import *
 from mainconfig import input
 
 
-def prompt_crisis_date() -> str:
+def _prompt_crisis_date() -> str:
 	while True:
 		crisis_date = input(
 			"Insert crisis date (YYYY-MM-DD or YYYY-MM-DD-hh):")
@@ -24,8 +24,7 @@ def prompt_crisis_date() -> str:
 				print("Invalid date format. Use YYYY-MM-DD or YYYY-MM-DD-hh.")
 
 
-
-def getTimeFrame(crisisDate: datetime, daysMargin) -> TimeFrame | None:
+def getTimeFrame(crisisDate: datetime, daysMargin: int) -> TimeFrame | None:
 	try:
 		margin = timedelta(days=daysMargin)
 		start_date = (crisisDate - margin).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -37,29 +36,9 @@ def getTimeFrame(crisisDate: datetime, daysMargin) -> TimeFrame | None:
 		return None
 
 
-
-def setDaysMargin() -> int:
-	while True:
-		margin_days = input(
-				f"Enter days margin around crisis date (minimum default value=[{aquisition_config.DEFAULT_DAYS_MARGIN}days]):",
-				expected_type=int
-				)
-
-		margin = int(margin_days) if margin_days else aquisition_config.DEFAULT_DAYS_MARGIN
-		if margin <= 0:
-			print("Margin must positive integer. Please try again.")
-			continue
-		if margin < aquisition_config.DEFAULT_DAYS_MARGIN:
-			print(f"Margin too small. Using default value of {aquisition_config.DEFAULT_DAYS_MARGIN} days.")
-			margin = aquisition_config.DEFAULT_DAYS_MARGIN
-		if margin > 20:
-			print("Margin too large. Choose a smaller window of days.")
-			continue
-		return margin
-
 def getTimeSeries(entry: LogEntry):
 	while True:
-		crisis_date = prompt_crisis_date()
+		crisis_date = _prompt_crisis_date()
 		if not crisis_date:
 			print("Error parsing crisis date. Please try again.")
 			continue

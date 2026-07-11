@@ -4,12 +4,12 @@ from dotenv import load_dotenv
 import requests
 import os
 
-from .aquisition_config import TOKEN_URL
+from .acquisition_config import TOKEN_URL
 
 load_dotenv()
 
 
-def getSHCredentials():
+def _getSHCredentials():
 	client_id = os.getenv('SH_CLIENT_ID', '')
 	client_secret = os.getenv('SH_CLIENT_SECRET', '')
 
@@ -28,7 +28,7 @@ def getCDSECredentials():
 	return username, password
 
 
-def getCDSEToken() -> dict:
+def _getCDSEToken() -> dict:
 	username, password = getCDSECredentials()
 	payload = {
 		"username": username,
@@ -41,9 +41,10 @@ def getCDSEToken() -> dict:
 	response.raise_for_status()
 	return response.json()
 
+
 def initCDSESession() -> OAuth2Session:
 	try:
-		token = getCDSEToken()
+		token = _getCDSEToken()
 		oauth = OAuth2Session()
 
 		oauth.token = token
@@ -57,9 +58,10 @@ def initCDSESession() -> OAuth2Session:
 		print(f"Error initializing CDSE session: {e}")
 		raise
 
+
 def initSHSession():
 	try:
-		client_id, client_secret = getSHCredentials()
+		client_id, client_secret = _getSHCredentials()
 
 		client = BackendApplicationClient(client_id=client_id)
 		oauth = OAuth2Session(client=client)

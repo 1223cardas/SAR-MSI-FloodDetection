@@ -2,18 +2,18 @@ from geopy.geocoders import Nominatim
 import math
 
 from .aclasses import Place, BBox, LogEntry
-from . import aquisition_config
+from .acquisition_config import *
 from mainconfig import input
 
 
-def requestRegionInfo(region_name: str, geolocator: Nominatim) -> list[Place]:
+def _requestRegionInfo(region_name: str, geolocator: Nominatim) -> list[Place]:
 	try:
 		print(f"Requesting geocoding info for '{region_name}'...")
 		locations = geolocator.geocode(
 			region_name,
 			exactly_one=False,
-			limit=aquisition_config.DEFAULT_SEARCH_LIMIT,
-			language=aquisition_config.NOMINATIM_LANGUAGE # type: ignore[call-arg]
+			limit=DEFAULT_SEARCH_LIMIT,
+			language=NOMINATIM_LANGUAGE # type: ignore[call-arg]
 		)
 
 		if not locations or locations is None:
@@ -35,8 +35,13 @@ def requestRegionInfo(region_name: str, geolocator: Nominatim) -> list[Place]:
 		raise
 
 
+def _displayMatches(places: list[Place], region: str):
+	print(f"Matches with {region}:")
+	for idx, place in enumerate(places, start=1):
+		print(f"\t[{idx}] {place.name} (lat={place.lat}, lon={place.lon})")
 
-def selectPlace(places: list[Place]) -> Place | None:
+
+def _selectPlace(places: list[Place]) -> Place | None:
 	while True:
 		selection = input("Select a region by entering the corresponding number. (or 'b' to choose another region)")
 		if selection.lower() == 'b':
@@ -63,42 +68,14 @@ def selectPlace(places: list[Place]) -> Place | None:
 				print("Invalid input. Please enter 'y' or 'n'")
 				continue
 
-def getbbox(place: Place) -> BBox:
-	while True:
-		aoi_size = input(
-			f"Enter AOI size in Km (square side, minimum default value=[{aquisition_config.DEFAULT_AOI_KM}Km]):",
-			expected_type=float
-		)
-		
-		size_km = float(aoi_size) if aoi_size else aquisition_config.DEFAULT_AOI_KM
 
-		if size_km <= 0:
-			print("AOI size must be a positive number. Please try again.")
-			continue
-		if size_km < aquisition_config.DEFAULT_AOI_KM:
-			print(f"AOI size too small. Using default value of {aquisition_config.DEFAULT_AOI_KM} Km.")
-			size_km = aquisition_config.DEFAULT_AOI_KM
-		if size_km > 500:
-			print("AOI size too large. Please enter a smaller value (max 500 Km).")
-			continue
-
-		coords = compute_bbox(place, size_km)
-		if not coords:
-			print("Error computing bounding box. Please try again.")
-			continue
-		
-		bbox = BBox(coords)
-		return bbox
-
-
-
-def compute_bbox(place: Place, size_km: float) -> list[float]:
+def _compute_bbox(place: Place, size_km: float) -> list[float]:
 	try:
 		half = size_km / 2.0
-		dlat = half / aquisition_config.KM_PER_DEG_LAT
+		dlat = half / KM_PER_DEG_LAT
 		cos_lat = math.cos(math.radians(place.lat))
 
-		dlon = half / (aquisition_config.KM_PER_DEG_LON * cos_lat)
+		dlon = half / (KM_PER_DEG_LON * cos_lat)
 
 		min_lon = place.lon - dlon
 		min_lat = place.lat - dlat
@@ -113,38 +90,60 @@ def compute_bbox(place: Place, size_km: float) -> list[float]:
 		return []
 
 
+def _getbbox(place: Place) -> BBox:
+	while True:
+		aoi_size = input(
+			f"Enter AOI size in Km (square side, minimum default value=[{DEFAULT_AOI_KM}Km]):",
+			expected_type=float
+		)
+		
+		size_km = float(aoi_size) if aoi_size else DEFAULT_AOI_KM
+
+		if size_km <= 0:
+			print("AOI size must be a positive number. Please try again.")
+			continue
+		if size_km < DEFAULT_AOI_KM:
+			print(f"AOI size too small. Using default value of {DEFAULT_AOI_KM} Km.")
+			size_km = DEFAULT_AOI_KM
+		if size_km > 500:
+			print("AOI size too large. Please enter a smaller value (max 500 Km).")
+			continue
+
+		coords = _compute_bbox(place, size_km)
+		if not coords:
+			print("Error computing bounding box. Please try again.")
+			continue
+
+		bbox = BBox(coords)
+		return bbox
+
 
 def getRegion(entry: LogEntry):
-	geolocator = Nominatim(user_agent=aquisition_config.USER_AGENT) # type: ignore[call-arg]
+	geolocator = Nominatim(user_agent=USER_AGENT) # type: ignore[call-arg]
 
 	while True:
 		region_name = input("\nEnter the name of the region:")
 		if len(region_name) == 1:
 			print("Region name too short. Please enter a more specific name.")
 			continue
-		
-		places = requestRegionInfo(region_name, geolocator)
+
+		places = _requestRegionInfo(region_name, geolocator)
 		if not places:
 			continue
 
-		print(f"Matches with {region_name}:")
-		for idx, place in enumerate(places, start=1):
-			print(f"\t[{idx}] {place.name} (lat={place.lat}, lon={place.lon})")
-		
-		
-		selectedPlace = selectPlace(places)
-		# if user wants to check another region, selectedPlace will be None,
-		# so we can just continue the loop and ask for another region name
+		_displayMatches(places, region_name)
+
+		selectedPlace = _selectPlace(places)
 		if selectedPlace is None:
 			continue
 
-		bbox = getbbox(selectedPlace)
+		bbox = _getbbox(selectedPlace)
 		if not bbox:
 			print("Error getting bounding box.")
 			break
 
 		entry.place_query = region_name
-		entry.place_name = place.name
+		entry.place_name = selectedPlace.name
 		entry.bbox = bbox.toList()
-		
+
 		break

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from .regiontimestamp import getTimeFrame
 from .authsession import initSHSession
 from .aclasses import Product, LogEntry
-from . import aquisition_config
+from .acquisition_config import *
 
 
 def requestProducts(entry: LogEntry, productType: str) -> list[Product]:
@@ -21,10 +21,8 @@ def requestProducts(entry: LogEntry, productType: str) -> list[Product]:
 		)
 		return []
 
-	# Sentinel-2 has no fixed relative-orbit revisit constraint comparable to S1's
-	# 12-day repeat cycle in the same way SAR look-geometry does — orbit matching
-	# only matters for SAR backscatter comparability, so only enforce it for S1.
-	if productType == aquisition_config.S1_COLLECTION and after.relative_orbit is not None:
+	print(f"after={after.id} (orbit {after.relative_orbit}/{after.orbit_state})")
+	if productType == S1_COLLECTION and after.relative_orbit is not None:
 		before = _find_before_product_matching_orbit(
 			entry, productType, crisis_date_dt, after, session
 		)
@@ -34,7 +32,7 @@ def requestProducts(entry: LogEntry, productType: str) -> list[Product]:
 	if before is None:
 		print(
 			f"Failed to find a suitable 'before' product for crisis date {entry.crisis_date}. "
-			f"Searched up to {aquisition_config.MAX_BEFORE_REPEAT_CYCLES} repeat cycles back."
+			f"Searched up to {MAX_BEFORE_REPEAT_CYCLES} repeat cycles back."
 		)
 		return []
 
@@ -54,11 +52,12 @@ def requestProducts(entry: LogEntry, productType: str) -> list[Product]:
 # ---------------------------------------------------------------------------
 
 def _find_after_product(
-	entry: LogEntry, productType: str, crisis_date_dt: datetime, session: OAuth2Session
-) -> Product | None:
-	search_deltas = [5, 10, 20]
-
-	for delta in search_deltas:
+		entry: LogEntry, 
+		productType: str, 
+		crisis_date_dt: datetime, 
+		session: OAuth2Session
+	) -> Product | None:
+	for delta in SEARCH_DELTAS:
 		time_frame = getTimeFrame(crisis_date_dt, delta)
 		if time_frame is None:
 			continue
@@ -87,9 +86,7 @@ def _find_after_product(
 def _find_before_product_any_orbit(
 	entry: LogEntry, productType: str, crisis_date_dt: datetime, session: OAuth2Session
 ) -> Product | None:
-	search_deltas = [5, 10, 20]
-
-	for delta in search_deltas:
+	for delta in SEARCH_DELTAS:
 		time_frame = getTimeFrame(crisis_date_dt, delta)
 		if time_frame is None:
 			continue
@@ -98,11 +95,16 @@ def _find_before_product_any_orbit(
 		features = _searchFeatures(entry.bbox, current_date_range, productType, session)
 		candidates = _toProducts(_filterByBbox(features, entry.bbox))
 
-		before_candidates = _applyMinBuffer(candidates, entry.crisis_date)
+		before_candidates = _filter_before_candidates(candidates, crisis_date_dt)
 		if before_candidates:
 			return max(before_candidates, key=lambda p: p.datetime)
 
 	return None
+
+
+def _filter_before_candidates(candidates: list[Product], crisis_date_dt: datetime) -> list[Product]:
+	cutoff_str = crisis_date_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+	return [p for p in candidates if p.datetime < cutoff_str]
 
 
 # ---------------------------------------------------------------------------
@@ -124,56 +126,57 @@ def _find_before_product_matching_orbit(
 	entry: LogEntry, productType: str, crisis_date_dt: datetime,
 	after: Product, session: OAuth2Session,
 ) -> Product | None:
-	cycle = timedelta(days=aquisition_config.S1_REPEAT_CYCLE_DAYS)
-	buffer = timedelta(days=aquisition_config.MIN_BEFORE_BUFFER_DAYS)
-	latest_allowed = crisis_date_dt - buffer
+	cycle = timedelta(days= S1_REPEAT_CYCLE_DAYS)
 
-	for n in range(1, aquisition_config.MAX_BEFORE_REPEAT_CYCLES + 1):
-		# Search a window centered on (crisis_date - n*cycle), wide enough to
-		# tolerate the satellite's actual revisit jitter (+/- a couple days).
-		window_center = crisis_date_dt - (cycle * n)
-		time_frame = getTimeFrame(window_center, daysMargin=3)
+	# First search the immediate pre-crisis window for a same-orbit match.
+	for delta in SEARCH_DELTAS:
+		time_frame = getTimeFrame(crisis_date_dt, delta)
 		if time_frame is None:
 			continue
 
 		current_date_range = time_frame.toString()
-		# print(
-		# 	f"Searching for orbit-matched 'before' product "
-		# 	f"(~{aquisition_config.S1_REPEAT_CYCLE_DAYS * n} days back): {current_date_range}..."
-		# )
 
 		features = _searchFeatures(entry.bbox, current_date_range, productType, session)
 		candidates = _toProducts(_filterByBbox(features, entry.bbox))
 
 		matched = [
-			p for p in candidates
+			p for p in _filter_before_candidates(candidates, crisis_date_dt)
 			if p.relative_orbit == after.relative_orbit
 			and p.orbit_state == after.orbit_state
-			and p.datetime <= latest_allowed.strftime("%Y-%m-%dT%H:%M:%SZ")
 		]
 
 		if matched:
-			# Closest-in-time match on the correct orbit, within the buffer.
 			return max(matched, key=lambda p: p.datetime)
 
+	# If none found close to the crisis date, search older repeat-cycle windows.
+	for n in range(1, MAX_BEFORE_REPEAT_CYCLES + 1):
+		window_center = crisis_date_dt - (cycle * n)
+
+		for delta in SEARCH_DELTAS:
+			time_frame = getTimeFrame(window_center, delta)
+			if time_frame is None:
+				continue
+
+			current_date_range = time_frame.toString()
+
+			features = _searchFeatures(entry.bbox, current_date_range, productType, session)
+			candidates = _toProducts(_filterByBbox(features, entry.bbox))
+
+			matched = [
+				p for p in _filter_before_candidates(candidates, crisis_date_dt)
+				if p.relative_orbit == after.relative_orbit
+				and p.orbit_state == after.orbit_state
+			]
+
+			if matched:
+				return max(matched, key=lambda p: p.datetime)
+
 	print(
-		f"No orbit-matched 'before' product found within "
-		f"{aquisition_config.MAX_BEFORE_REPEAT_CYCLES} repeat cycles. "
+		"No orbit-matched 'before' product found within "
+		f"{MAX_BEFORE_REPEAT_CYCLES} repeat cycles. "
 		"Falling back to closest available product regardless of orbit."
 	)
 	return _find_before_product_any_orbit(entry, productType, crisis_date_dt, session)
-
-
-# ---------------------------------------------------------------------------
-# Shared helpers
-# ---------------------------------------------------------------------------
-
-def _applyMinBuffer(candidates: list[Product], crisis_date: str) -> list[Product]:
-	"""Keep only candidates dated before crisis_date minus the minimum buffer."""
-	crisis_dt = datetime.strptime(crisis_date, "%Y-%m-%dT%H:%M:%SZ")
-	cutoff = crisis_dt - timedelta(days=aquisition_config.MIN_BEFORE_BUFFER_DAYS)
-	cutoff_str = cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
-	return [p for p in candidates if p.datetime <= cutoff_str]
 
 
 def _searchFeatures(bbox: list, date_range: str, productType: str, session: OAuth2Session) -> list:
@@ -181,8 +184,12 @@ def _searchFeatures(bbox: list, date_range: str, productType: str, session: OAut
 		"bbox": bbox,
 		"datetime": date_range,
 		"collections": [productType],
-		"limit": aquisition_config.DEFAULT_SEARCH_LIMIT,
+		"limit": DEFAULT_SEARCH_LIMIT,
 	}
+	# Cloud cover filtering for Sentinel-2
+	if productType == S2_COLLECTION and DEFAULT_S2_CLOUD_COVER is not None:
+		query["filter"] = f"eo:cloud_cover <= {DEFAULT_S2_CLOUD_COVER}"
+
 	return fetchProducts(query, session)
 
 
@@ -215,7 +222,7 @@ def fetchProducts(query, session: OAuth2Session) -> list:
 		raise ValueError("Query must contain 'bbox', 'datetime', 'collections', and 'limit' keys.")
 
 	try:
-		response = session.post(aquisition_config.CATALOG_URL, json=query)
+		response = session.post(CATALOG_URL, json=query)
 		response.raise_for_status()
 		results = response.json()
 
