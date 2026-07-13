@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from .pclasses import Product
-from .paths import build_cache_file, build_output_file
 from .discovery import discoverProducts, discoverAOI, getProductFile
 from .pipeline_utils import setupExecution, checkSuffixForFile
-from .utils import refactor_snap_product
-
+from .paths import build_cache_file, build_output_file
 from .product_utils import computeWorkflowVariables
+from .utils import refactor_snap_product
 from .masking import export_clean_tif
+
+from common import Product
 
 def runProcessing(entry: dict, gptExec: list[str]) -> list[Product]:
     area_of_interest = discoverAOI(entry)
@@ -18,7 +18,6 @@ def runProcessing(entry: dict, gptExec: list[str]) -> list[Product]:
     print("Processing products...")
     for product in products:
         print(f"|\tProcessing {product.name}")
-
         output_path = build_cache_file(f"{entry.get('place_query')}_{product.parseDate()}")
         
         dim_file, dimExists = checkSuffixForFile(output_path, ".dim")
@@ -38,7 +37,7 @@ def runProcessing(entry: dict, gptExec: list[str]) -> list[Product]:
 
         executed = setupExecution("singleProductProcessing", args, gptExec)
         if not executed:
-            print(f"|\t[ERROR] Skipping {product.name} due to subset failure.")
+            print(f"|\t[ERROR] Skipping {product.name} due to processing failure.")
             continue
 
         _, procDimExists = checkSuffixForFile(Path(proc_fileNaming), ".dim")
@@ -59,8 +58,6 @@ def runProcessing(entry: dict, gptExec: list[str]) -> list[Product]:
 
     result.sort(key=lambda p: p.date) # Make sure the products are ordered by date
     return result
-
-
 
 
 def runStacking(cached_products: list[Product], gptExec: list[str]) -> Path:
@@ -116,7 +113,6 @@ def runMaskCreation(dimStack_file: Path, namingScheme: str, gptExec: list[str]) 
         raise RuntimeError("Flood mask creation failed — check SNAP output above.")
 
     refactor_snap_product(flood_fileNaming)
-
     return floodDim_file
 
 
@@ -129,5 +125,4 @@ def convertFloodToTif(flood_dim: Path, namingScheme: str) -> Path:
         return tif_path
     
     export_clean_tif(flood_dim, tif_path)
-
     return tif_path

@@ -2,7 +2,7 @@ TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/
 
 USER_AGENT = "SAR-MSI-FloodDetection"
 NOMINATIM_LANGUAGE = "en"
-DEFAULT_AOI_KM = 20.0
+DEFAULT_AOI_KM = 50.0
 DEFAULT_DAYS_MARGIN = 5
 DEFAULT_SEARCH_LIMIT = 20
 

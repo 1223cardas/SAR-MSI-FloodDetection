@@ -10,7 +10,7 @@ class Msg:
 	error: str = ""
 
 
-def getMsg(mode: str) -> Msg | None:
+def _getMsg(mode: str) -> Msg | None:
 	success = error = ""
 
 	match(mode):
@@ -31,7 +31,7 @@ def getMsg(mode: str) -> Msg | None:
 
 
 def _execute(cmd: list[str], mode: str) -> bool:
-	msg = getMsg(mode)
+	msg = _getMsg(mode)
 	if msg is None:
 		print("Incorrect mode. Stopping execution.")
 		return False

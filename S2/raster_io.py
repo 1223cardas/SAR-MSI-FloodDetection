@@ -12,9 +12,16 @@ def debug(title):
 
 
 def prepare_workspace(folder):
-    if os.path.exists(folder):
-        shutil.rmtree(folder)
-    os.makedirs(folder)
+    os.makedirs(folder, exist_ok=True)
+
+    for entry in os.listdir(folder):
+        full_path = os.path.join(folder, entry)
+        if os.path.isdir(full_path):
+            shutil.rmtree(full_path)
+        else:
+            if entry.lower().endswith(".tif") and "flood" in entry.lower():
+                continue
+            os.remove(full_path)
 
 
 def read_raster(path):

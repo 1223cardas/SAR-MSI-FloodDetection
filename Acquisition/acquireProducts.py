@@ -1,4 +1,5 @@
 from collections import defaultdict
+from copy import deepcopy
 
 from .modules.acquisition_config import S1_COLLECTION, S2_COLLECTION
 from .modules.search_log import saveLogEntry, load_search_log
@@ -8,7 +9,51 @@ from .modules.regiongeocoding import getRegion
 from .modules.request import requestProducts
 from .modules.aclasses import LogEntry
 from .modules.utils import *
-from mainconfig import input
+
+from common import Product, PromptCancelledError
+
+from mainconfig import OUTPUT_DIR, input
+
+
+def getEntry(collection_name: str) -> dict:
+	print("Discovering products...")
+	csvEntry = acquireEntryFromLog(collection_name)
+
+	if csvEntry is None:
+		raise FileNotFoundError(
+			f"No products found in {OUTPUT_DIR}.\n"
+			"Please run the acquisition process first to create log entries."
+		)
+
+	return csvEntry.to_dict()
+
+
+def discoverProducts(entry: dict) -> list:
+    bef = Product(entry["beforeId"])
+    aft = Product(entry["afterId"])
+
+    products = [bef, aft]
+    if not all(p.name for p in products):
+        raise ValueError(
+            "Both 'before' and 'after' product IDs must be present in the log entry. "
+            "Please check the log and ensure both products are listed."
+        )
+
+    downloads = list(OUTPUT_DIR.iterdir())
+
+    for p in products:
+        p.extractDateFromProduct()
+        for file in downloads:
+            if file.name.startswith(p.name):
+                p.path = file
+
+    if not all(getattr(p, "path", None) is not None for p in products):
+        raise FileNotFoundError(
+            "Could not find both product files in the output directory. "
+            "Please ensure the products are present and try again."
+        )
+
+    return products
 
 
 def _getList(entries: list[LogEntry], mode: str) -> list:
@@ -41,7 +86,7 @@ def _printEntries(entries: list[LogEntry], entryTypes: list[str], mode: str = "s
         choice = input("Enter the number of the log entry to process ('q' to quit, 0 to create a new entry): ")
         if choice.lower() == 'q':
             print("Exiting.")
-            exit(1)
+            raise PromptCancelledError("User requested program exit via console menu.")
         
         if choice == '0':
             print("Creating a new log entry.")
@@ -73,7 +118,7 @@ def _printEntries(entries: list[LogEntry], entryTypes: list[str], mode: str = "s
 
 
 def _setupEntry(entry: LogEntry, collection: str) -> LogEntry:
-	resultEntry = entry
+	resultEntry = deepcopy(entry)
 	resultEntry.collection = collection
 	print(f"Checking for products using {collection}")
 

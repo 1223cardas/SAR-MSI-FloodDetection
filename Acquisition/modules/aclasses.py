@@ -29,6 +29,27 @@ class LogEntry:
 	afterId: str = ""
 	processed_at: str = ""
 
+	def __eq__(self, other: object) -> bool:
+		if not isinstance(other, LogEntry):
+			return False
+		return (
+			self.collection  == other.collection  and
+			self.place_query == other.place_query  and
+			self.beforeId    == other.beforeId     and
+			self.afterId     == other.afterId      and
+			self.date_range  == other.date_range   and
+			self.bbox        == other.bbox
+		)
+	
+	def __hash__(self):
+		return hash((
+			self.collection,
+			self.place_query,
+			self.beforeId,
+			self.afterId,
+			self.date_range,
+			tuple(self.bbox)
+		))
 
 	@classmethod
 	def from_csv_row(cls, row):
@@ -73,7 +94,7 @@ class LogEntry:
 
 	def productFromIds(self):
 		if self.beforeId == "" or self.afterId == "": return []
-		return [Product(id=self.beforeId), Product(id=self.afterId)]
+		return [SlugProduct(id=self.beforeId), SlugProduct(id=self.afterId)]
 	
 	def isEmpty(self):
 		return self == LogEntry()
@@ -107,13 +128,12 @@ class BBox:
 
 
 @dataclass
-class Product:
+class SlugProduct:
 	id: str = ""
 	datetime: str = ""
 	uuid: str = ""
 	relative_orbit: int | None = None
 	orbit_state: str = ""
-
 
 
 @dataclass

@@ -7,7 +7,7 @@ import zipfile
 
 from mainconfig import OUTPUT_DIR
 from .authsession import initCDSESession
-from .aclasses import Product
+from .aclasses import SlugProduct
 from .acquisition_config import *
 
 
@@ -25,9 +25,9 @@ def _downloadFile(resp: Response, location: Path):
 					pbar.update(len(chunk))
 
 
-def _checkIfDownloaded(products: list[Product]) -> list[Product]:
+def _checkIfDownloaded(products: list[SlugProduct]) -> list[SlugProduct]:
 	""" Checks the products list and returns a list of products that arent yet downloaded. """
-	productsToDownload: list[Product] = []
+	productsToDownload: list[SlugProduct] = []
 
 	for prod in products:
 		product_folder = OUTPUT_DIR / f"{prod.id}"
@@ -58,7 +58,7 @@ def _extract_zip(zip_path: Path, downloadedProducts: list):
 		downloadedProducts.append(zip_path)
 
 
-def _resolveUUIDs(products: list[Product], session: OAuth2Session):
+def _resolveUUIDs(products: list[SlugProduct], session: OAuth2Session):
 	""" Adds uuid values to every product in the products list """
 	for prod in products:
 		if not prod.id:
@@ -86,7 +86,7 @@ def _resolveUUIDs(products: list[Product], session: OAuth2Session):
 
 
 MB = 1024 * 1024
-def _downloadProducts(products: list[Product], session: OAuth2Session) -> list[Path]:
+def _downloadProducts(products: list[SlugProduct], session: OAuth2Session) -> list[Path]:
 	OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 	
 	downloaded_productPaths = []
@@ -121,7 +121,7 @@ def _downloadProducts(products: list[Product], session: OAuth2Session) -> list[P
 
 
 
-def queueProductsForDownload(products: list[Product]):
+def queueProductsForDownload(products: list[SlugProduct]):
 	productsToDownload = _checkIfDownloaded(products)
 
 	if not productsToDownload: 

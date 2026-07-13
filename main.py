@@ -6,7 +6,8 @@ from pathlib import Path
 from processors import S1Processor, S2Processor
 from processors import build_s2_output_path
 from Combined.combine import fuse_flood_outputs
-from Acquisition.acquireProducts import acquireProductsS1_S2
+from Acquisition.acquireProducts import acquireEntryFromLogWithBoth
+from common import PromptCancelledError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -53,6 +54,8 @@ def resolve_s1(*, force: bool = False, entry: dict | None = None) -> Path | None
         path = _result_to_path(result)
         if path:
             return path
+    except PromptCancelledError:
+        raise
     except Exception:
         logger.exception("[s1] erro no processamento")
 
@@ -71,7 +74,7 @@ def resolve_s2(*, out_dir: str = "S2/output",
     Mesma lógica de reutilização/salvaguarda que o resolve_s1.
     """
     s2_out_dir = Path(out_dir)
-    expected = build_s2_output_path(s2_out_dir, entry=entry, threshold=threshold)
+    expected = build_s2_output_path(s2_out_dir, entry=entry)
     existing = expected if expected.exists() else None
 
     if existing is None and entry is None:
@@ -92,6 +95,8 @@ def resolve_s2(*, out_dir: str = "S2/output",
         path = _result_to_path(result)
         if path:
             return path
+    except PromptCancelledError:
+        raise
     except Exception:
         logger.exception("[s2] erro no processamento")
 
@@ -124,6 +129,8 @@ def run_fusion(s1_path: Path, s2_path: Path, out_tif: str) -> Path | None:
         )
         logger.info("[fusão] concluída — ficheiro final: %s", final)
         return final
+    except PromptCancelledError:
+        raise
     except Exception:
         logger.exception("[fusão] erro crítico")
         return None
@@ -170,73 +177,85 @@ def build_parser():
 def main():
     args = build_parser().parse_args()
 
-    match args.source:
-        case "s1":
-            logger.info("Preparing Sentinel-1 processing...")
-            try:
-                result = S1Processor().run(run_processing=args.run, view=args.view)
-                if path := _result_to_path(result):
-                    logger.info("S1 flood TIF: %s", path)
-            except Exception:
-                logger.exception("Erro S1")
-                sys.exit(3)
+    try:
+        match args.source:
+            case "s1":
+                logger.info("Preparing Sentinel-1 processing...")
+                try:
+                    result = S1Processor().run(run_processing=args.run, view=args.view)
+                    if path := _result_to_path(result):
+                        logger.info("S1 flood TIF: %s", path)
+                except PromptCancelledError:
+                    raise
+                except Exception:
+                    logger.exception("Erro S1")
+                    sys.exit(3)
 
-        case "s2":
-            logger.info("A preparar Sentinel-2...")
-            try:
-                result = S2Processor(
+            case "s2":
+                logger.info("A preparar Sentinel-2...")
+                try:
+                    result = S2Processor(
+                        out_dir=args.s2_out,
+                        preview=args.view,
+                        threshold=args.threshold,
+                    ).run(run_processing=args.run, view=args.view)
+                    if path := _result_to_path(result):
+                        logger.info("S2 flood TIF: %s", path)
+                except PromptCancelledError:
+                    raise
+                except Exception:
+                    logger.exception("Erro S2")
+                    sys.exit(4) 
+
+
+            case "fusion":
+                if args.view:
+                    logger.warning("Preview não implementado para a fusão.")
+                    return
+                if args.run:
+                    s2_candidate = Path(args.s2_tif) if args.s2_tif else _find_latest_tif(Path("S2/output"), "*_flood.tif")
+                    if s2_candidate is None:
+                        logger.error("Nenhum output do S2 encontrado para a fusão.")
+                        sys.exit(5)
+                    if not run_fusion(Path(args.s1_tif), s2_candidate, args.out_tif):
+                        sys.exit(5)
+
+            case "auto":
+                entries = acquireEntryFromLogWithBoth()
+                if entries is None:
+                    logger.error("No entries availible.")
+                    sys.exit(1)
+                
+                s1_entry, s2_entry = entries 
+                hasS1 = len(s1_entry.productFromIds()) == 2
+                hasS2 = len(s2_entry.productFromIds()) == 2
+
+                logger.info("Dados disponíveis — S1: %s | S2: %s", hasS1, hasS2)
+
+                if not hasS1 and not hasS2:
+                    logger.error("Nenhum dado disponível.")
+                    sys.exit(1)
+
+                s1_path = resolve_s1(force=True, entry=s1_entry.to_dict()) if hasS1 else None
+                s2_path = resolve_s2(  
                     out_dir=args.s2_out,
-                    preview=args.view,
                     threshold=args.threshold,
-                ).run(run_processing=args.run, view=args.view)
-                if path := _result_to_path(result):
-                    logger.info("S2 flood TIF: %s", path)
-            except Exception:
-                logger.exception("Erro S2")
-                sys.exit(4) 
+                    force=True,
+                    entry=s2_entry.to_dict()
+                ) if hasS2 else None
 
-
-        case "fusion":
-            if args.view:
-                logger.warning("Preview não implementado para a fusão.")
-                return
-            if args.run:
-                s2_candidate = Path(args.s2_tif) if args.s2_tif else _find_latest_tif(Path("S2/output"), "*_flood.tif")
-                if s2_candidate is None:
-                    logger.error("Nenhum output do S2 encontrado para a fusão.")
-                    sys.exit(5)
-                if not run_fusion(Path(args.s1_tif), s2_candidate, args.out_tif):
-                    sys.exit(5)
-
-        case "auto":
-            s1_entry, s2_entry = acquireProductsS1_S2()
-            hasS1 = len(s1_entry.productFromIds()) == 2
-            hasS2 = len(s2_entry.productFromIds()) == 2
-
-            logger.info("Dados disponíveis — S1: %s | S2: %s", hasS1, hasS2)
-
-            if not hasS1 and not hasS2:
-                logger.error("Nenhum dado disponível.")
-                sys.exit(1)
-
-            s1_path = resolve_s1(force=True, entry=s1_entry.to_dict()) if hasS1 else None
-            s2_path = resolve_s2(  
-                out_dir=args.s2_out,
-                threshold=args.threshold,
-                force=True,
-                entry=s2_entry.to_dict()
-            ) if hasS2 else None
-
-            if s1_path and s2_path:
-                if not run_fusion(s1_path, s2_path, args.out_tif):
-                    sys.exit(5)
-            elif s1_path:
-                logger.info("[auto] apenas S1 disponível — resultado: %s", s1_path)
-            elif s2_path:
-                logger.info("[auto] apenas S2 disponível — resultado: %s", s2_path)
-            else:
-                logger.error("[auto] nenhum ficheiro produzido apesar dos dados reportados.")
-                sys.exit(3)
+                if s1_path and s2_path:
+                    if not run_fusion(s1_path, s2_path, args.out_tif):
+                        sys.exit(5)
+                elif s1_path:
+                    logger.info("[auto] apenas S1 disponível — resultado: %s", s1_path)
+                elif s2_path:
+                    logger.info("[auto] apenas S2 disponível — resultado: %s", s2_path)
+                else:
+                    logger.error("[auto] nenhum ficheiro produzido apesar dos dados reportados.")
+                    sys.exit(3)
+    except PromptCancelledError:
+        logger.info("Execução cancelada pelo utilizador.")
 
 if __name__ == "__main__":
     import time

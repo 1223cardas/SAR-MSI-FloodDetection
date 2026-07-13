@@ -9,7 +9,7 @@ downloads
 *.csv
 
 # S1
-output
+output*
 processing_cache
 
 # S2

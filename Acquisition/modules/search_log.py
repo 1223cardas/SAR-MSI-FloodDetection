@@ -17,8 +17,7 @@ def saveLogEntry(entry: LogEntry):
 	with LOG_PATH.open("r", newline="", encoding="utf-8") as csvRead:
 		reader = csv.DictReader(csvRead)
 		for row in reader:
-			currRow: LogEntry = LogEntry.from_csv_row(row)
-			if currRow == entry:
+			if entry.__eq__(LogEntry.from_csv_row(row)):
 				print("Log entry already exists, skipping save.")
 				return
 

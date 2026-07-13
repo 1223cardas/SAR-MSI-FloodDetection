@@ -10,14 +10,25 @@ from matplotlib.figure import Figure
 
 from .config import MODE_CONFIG, RunState
 
-WIDTH  = 1280
-HEIGHT = 720
-
 
 class UIBuilder:
+
+    status: ctk.CTkLabel
+    progress: ctk.CTkProgressBar
+    log_box: ctk.CTkTextbox
+    pause_btn: ctk.CTkButton
+    cancel_btn: ctk.CTkButton
+    run_btn: ctk.CTkButton
+    result_btn: ctk.CTkButton
+    
+    _fields_frame: ctk.CTkFrame
+    _header_label: ctk.CTkLabel
+    _rendered_mode: str
+
     def __init__(self, app, on_mode_changed):
         self.app = app
         self._on_mode_changed = on_mode_changed
+        self._rendered_mode = ""
 
         self._progress_colors = {
             "running": "#3b82f6",
@@ -27,29 +38,16 @@ class UIBuilder:
             "completed": "#22c55e",
         }
 
-        # Widgets expostos para o exterior
-        self.status   = None
-        self.progress = None
-        self.log_box  = None
-        self.pause_btn  = None
-        self.cancel_btn = None
-        self.run_btn    = None
-        self.result_btn = None
-
-    # ------------------------------------------------------------------
-    # Ponto de entrada
-    # ------------------------------------------------------------------
-
     def build(self):
         self._configure_window()
         self._build_sidebar()
         self._build_main_area()
         self._build_header()
         self._build_body()
-        self._render_fields("all")
+        self._render_fields("auto")
 
     # ------------------------------------------------------------------
-    # Helpers de UI (chamados pelo RunController / App)
+    # UI Helpers (called by RunController / App)
     # ------------------------------------------------------------------
 
     def set_status(self, text: str):
@@ -59,10 +57,9 @@ class UIBuilder:
         self.app.after(0, self._do_clear_log)
 
     def _do_clear_log(self):
-        if self.log_box:
-            self.log_box.configure(state="normal")
-            self.log_box.delete("1.0", "end")
-            self.log_box.configure(state="disabled")
+        self.log_box.configure(state="normal")
+        self.log_box.delete("1.0", "end")
+        self.log_box.configure(state="disabled")
 
     def set_progress_color(self, state: str):
         color = self._progress_colors.get(state, self._progress_colors["running"])
@@ -75,21 +72,21 @@ class UIBuilder:
     def show_result_preview(self):
         path = getattr(self.app, "last_output_path", None)
         if not path:
-            self.set_status("Sem resultado final para visualizar.")
+            self.set_status("No final result available to view.")
             return
 
         tif_path = Path(path)
         if not tif_path.exists():
-            self.set_status("O ficheiro final já não existe no disco.")
+            self.set_status("The final file no longer exists on disk.")
             return
 
         preview_png = self.cache_result_preview(tif_path)
         if preview_png is None or not preview_png.exists():
-            self.set_status("Falha ao preparar preview PNG do resultado.")
+            self.set_status("Failed to prepare PNG preview of the result.")
             return
 
         preview = ctk.CTkToplevel(self.app)
-        preview.title(f"Resultado final - {tif_path.name}")
+        preview.title(f"Final Result - {tif_path.name}")
         preview.geometry("980x760")
         preview.minsize(800, 600)
 
@@ -98,14 +95,14 @@ class UIBuilder:
 
         header = ctk.CTkLabel(
             container,
-            text=f"Resultado final: {tif_path.name}",
+            text=f"Final Result: {tif_path.name}",
             font=ctk.CTkFont(size=16, weight="bold"),
         )
         header.pack(anchor="w", padx=12, pady=(12, 6))
 
         info = ctk.CTkLabel(
             container,
-            text=f"Origem: {tif_path} | Preview: {preview_png.name}",
+            text=f"Source: {tif_path} | Preview: {preview_png.name}",
             text_color="gray",
             anchor="w",
         )
@@ -115,7 +112,7 @@ class UIBuilder:
         fig = Figure(figsize=(8, 6), dpi=100)
         ax = fig.add_subplot(111)
         ax.imshow(rgb)
-        ax.set_title("Mapa de resultado final (PNG em cache)")
+        ax.set_title("Final Result Map (Cached PNG)")
         ax.set_axis_off()
         fig.tight_layout()
 
@@ -138,8 +135,43 @@ class UIBuilder:
         if preview_png.exists() and preview_png.stat().st_mtime >= source.stat().st_mtime:
             return preview_png
 
-        with rasterio.open(source) as src:
+        # If the TIFF is actually a colorized RGB(A) uint8 file (e.g. "*.color.tif"),
+        # prefer the original continuous TIFF (same name without the ".color" suffix)
+        # for generating the preview. If the continuous file is not present, fall
+        # back to normalizing the uint8 band to 0..1 for preview only.
+        source_for_preview = source
+        normalize_uint8 = False
+        try:
+            with rasterio.open(source) as src:
+                is_color_uint8 = (src.count >= 3 and src.dtypes[0].startswith("uint8"))
+        except Exception:
+            is_color_uint8 = False
+
+        if is_color_uint8:
+            stem = source.stem
+            if stem.endswith('.color'):
+                candidate = source.with_name(stem[:-6] + source.suffix)
+                if candidate.exists():
+                    source_for_preview = candidate
+            else:
+                # try common patterns
+                for pattern in ('.color', '_color', '-color'):
+                    if pattern in stem:
+                        candidate = source.with_name(stem.replace(pattern, '') + source.suffix)
+                        if candidate.exists():
+                            source_for_preview = candidate
+                            break
+
+            # if still pointing to the color file, we'll normalize uint8 for preview
+            if source_for_preview == source:
+                normalize_uint8 = True
+
+        with rasterio.open(source_for_preview) as src:
             data = src.read(1).astype("float32")
+
+        if normalize_uint8:
+            # uint8 RGB band values are 0..255 — normalize to 0..1 for preview
+            data = data / 255.0
 
         finite = np.isfinite(data)
         if not finite.any():
@@ -157,8 +189,8 @@ class UIBuilder:
         norm = colors.Normalize(vmin=vmin, vmax=vmax)
         image = ax.imshow(masked, cmap="viridis", norm=norm)
         ax.set_axis_off()
-        ax.set_title(f"{source.name} | escala {vmin:.3f} a {vmax:.3f}")
-        fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04, label="Valor")
+        ax.set_title(f"{source_for_preview.name} | scale {vmin:.3f} to {vmax:.3f}")
+        fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04, label="Value")
         fig.tight_layout()
         fig.savefig(preview_png, bbox_inches="tight", pad_inches=0.05)
         fig.clear()
@@ -168,27 +200,27 @@ class UIBuilder:
         self.app.after(0, lambda t=text: self.pause_btn.configure(text=t))
 
     def set_running_controls(self):
-        """Activa controlos de pausa/cancel e desactiva o botão de run."""
+        """Activates pause/cancel controls and disables the run button."""
         self.run_btn.configure(state="disabled")
-        self.pause_btn.configure(state="normal", text="Pausar")
+        self.pause_btn.configure(state="normal", text="Pause")
         self.cancel_btn.configure(state="normal")
         self.set_result_button_state(False)
         self.set_progress_color("running")
 
     def reset_controls(self):
-        """Restaura a UI para o estado idle após o fim de uma execução."""
+        """Restores UI controls to idle state after an execution completes."""
         self.run_btn.configure(state="normal")
-        self.pause_btn.configure(state="disabled", text="Pausar")
+        self.pause_btn.configure(state="disabled", text="Pause")
         self.cancel_btn.configure(state="disabled")
         self.set_result_button_state(bool(getattr(self.app, "last_output_path", None)))
 
-    def set_prompt_waiting(self, text="A aguardar seleção de produto..."):
+    def set_prompt_waiting(self, text="Awaiting product selection..."):
         def _apply():
             app = self.app
             if app.run_state != RunState.CANCELED:
                 app.run_state         = RunState.AWAITING_INPUT
                 app._last_status_text = self.status.cget("text")
-                self.pause_btn.configure(state="disabled", text="Pausar")
+                self.pause_btn.configure(state="disabled", text="Pause")
                 self.status.configure(text=text)
 
         self.app.after(0, _apply)
@@ -200,13 +232,13 @@ class UIBuilder:
         app.run_state = RunState.PAUSED if app._pause_event.is_set() else RunState.RUNNING
         self.pause_btn.configure(
             state="normal",
-            text="Retomar" if app.run_state == RunState.PAUSED else "Pausar",
+            text="Continue" if app.run_state == RunState.PAUSED else "Pause",
         )
         if app.run_state == RunState.RUNNING:
-            self.status.configure(text=app._last_status_text or "A executar...")
+            self.status.configure(text=app._last_status_text or "Executing...")
 
     def append_log(self, text: str):
-        """Thread-safe: adiciona texto à caixa de log."""
+        """Thread-safe: Appends text string onto the logger log box window."""
         self.app.after(0, lambda t=text: self._do_append_log(t))
 
     def _do_append_log(self, text: str):
@@ -217,12 +249,16 @@ class UIBuilder:
             self.log_box.configure(state="disabled")
 
     # ------------------------------------------------------------------
-    # Campos dinâmicos
+    # Dynamic Field Management
     # ------------------------------------------------------------------
 
     def _render_fields(self, mode_key: str):
         app = self.app
         app._capture_field_values()
+
+        if self._rendered_mode == mode_key:
+            return
+        self._rendered_mode = mode_key
 
         for widget in self._fields_frame.winfo_children():
             widget.destroy()
@@ -232,7 +268,7 @@ class UIBuilder:
         if not fields:
             ctk.CTkLabel(
                 self._fields_frame,
-                text="Sem parâmetros configuráveis para este modo.",
+                text="No configurable parameters specified for this run-mode.",
                 text_color="gray",
             ).pack(anchor="w", padx=14, pady=10)
             return
@@ -247,19 +283,33 @@ class UIBuilder:
             app._field_entries[attr] = entry
 
     def render(self, mode_key: str):
-        """Chamado por App._switch_mode para re-renderizar os campos."""
+        """Called by App._switch_mode to dynamically clear and refresh parameter elements."""
         self._render_fields(mode_key)
         self._header_label.configure(text=MODE_CONFIG[mode_key]["title"])
 
     # ------------------------------------------------------------------
-    # Construção interna
+    # Core Layout Assembly 
     # ------------------------------------------------------------------
 
     def _configure_window(self):
         app = self.app
         app.title("SAR-MSI Flood Detection")
-        app.geometry(f"{WIDTH}x{HEIGHT}")
-        app.minsize(WIDTH, HEIGHT)
+
+        screen_width = app.winfo_screenwidth()
+        screen_height = app.winfo_screenheight()
+
+        dynamic_width = int(screen_width * 0.75)
+        dynamic_height = int(screen_height * 0.70)
+
+        win_width = max(1024, min(dynamic_width, 1600))
+        win_height = max(600, min(dynamic_height, 900))
+
+        x_position = (screen_width - win_width) // 2
+        y_position = (screen_height - win_height) // 2
+        
+        app.geometry(f"{win_width}x{win_height}+{x_position}+{y_position}")
+        app.resizable(False, False)
+
         app.grid_columnconfigure(1, weight=1)
         app.grid_rowconfigure(0, weight=1)
 
@@ -282,10 +332,12 @@ class UIBuilder:
                 command=lambda m=mode: self._on_mode_changed(m),
             ).pack(fill="x", padx=15, pady=8)
 
-        _nav("Modo automático",   "auto")
-        _nav("Sentinel-1",        "s1")
-        _nav("Sentinel-2",        "s2")
-        _nav("Fusão",             "fusion")
+        _nav("Automated Pipeline", "auto")
+        _nav("Sentinel-1",         "s1")
+        _nav("Sentinel-2",         "s2")
+        _nav("Data Fusion",        "fusion")
+
+        self._rendered_mode = "auto" # Default mode
 
     def _build_main_area(self):
         main = ctk.CTkFrame(self.app)
@@ -299,8 +351,10 @@ class UIBuilder:
         header.grid(row=0, column=0, sticky="ew", pady=(0, 12))
         header.grid_columnconfigure(0, weight=1)
 
+        header_text = MODE_CONFIG.get(self._rendered_mode, {}).get("title", "")
         self._header_label = ctk.CTkLabel(
-            header, text="Pipeline Completo",
+            header, 
+            text=header_text,
             font=ctk.CTkFont(size=20, weight="bold"),
         )
         self._header_label.grid(row=0, column=0, sticky="w", padx=14, pady=14)
@@ -320,15 +374,15 @@ class UIBuilder:
         left.grid(row=0, column=0, sticky="nsew", padx=(12, 6), pady=5)
 
         ctk.CTkLabel(
-            left, text="Parâmetros",
+            left, text="Parameters",
             font=ctk.CTkFont(size=16, weight="bold"),
         ).pack(anchor="w", padx=14, pady=(14, 10))
 
-        self._fields_frame = ctk.CTkFrame(left, fg_color="transparent", height=330)
+        self._fields_frame = ctk.CTkFrame(left, fg_color="transparent")
         self._fields_frame.pack(fill="both", expand=True)
 
         self.run_btn = ctk.CTkButton(
-            left, text="Executar", height=40,
+            left, text="Run Execution", height=40,
             command=self.app.run_selected,
         )
         self.run_btn.pack(fill="x", padx=14, pady=(18, 6))
@@ -337,14 +391,14 @@ class UIBuilder:
         ctrl.pack(fill="x", padx=14, pady=(0, 14))
 
         self.pause_btn = ctk.CTkButton(
-            ctrl, text="Pausar",
+            ctrl, text="Pause",
             command=self.app.runner.toggle_pause,
             state="disabled",
         )
         self.pause_btn.pack(side="left", expand=True, fill="x", padx=(0, 6))
 
         self.cancel_btn = ctk.CTkButton(
-            ctrl, text="Cancelar",
+            ctrl, text="Cancel",
             command=self.app.runner.cancel,
             state="disabled",
         )
@@ -357,7 +411,7 @@ class UIBuilder:
         right.grid_rowconfigure(2, weight=1)
 
         ctk.CTkLabel(
-            right, text="Estado",
+            right, text="Status Monitoring",
             font=ctk.CTkFont(size=16, weight="bold"),
         ).pack(anchor="w", padx=14, pady=(14, 8))
 
@@ -365,15 +419,15 @@ class UIBuilder:
         self.progress.pack(fill="x", padx=14, pady=(0, 10))
         self.progress.set(0)
 
-        self.status = ctk.CTkLabel(right, text="Pronto", anchor="w")
+        self.status = ctk.CTkLabel(right, text="Ready", anchor="w")
         self.status.pack(fill="x", padx=14, pady=(0, 12))
 
-        self.log_box = ctk.CTkTextbox(right, wrap="word", state="disabled")
+        self.log_box = ctk.CTkTextbox(right, wrap="none", state="disabled")
         self.log_box.pack(fill="both", expand=True, padx=14, pady=(0, 12))
 
         self.result_btn = ctk.CTkButton(
             right,
-            text="Ver resultado final",
+            text="View Final Result Map",
             command=self.show_result_preview,
             state="disabled",
         )
@@ -386,14 +440,14 @@ class UIBuilder:
         frame.pack(fill="x", padx=14, pady=(0, 14))
 
         ctk.CTkLabel(
-            frame, text="Entrada:", text_color="gray",
+            frame, text="User Console Input:", text_color="gray",
             font=ctk.CTkFont(size=10),
         ).pack(anchor="w", pady=(0, 4))
 
         entry = ctk.CTkEntry(
             frame,
             textvariable=self.app.input_entry_var,
-            placeholder_text="Digite aqui e pressione Enter para responder...",
+            placeholder_text="Type your answer here and press Enter...",
         )
         entry.pack(fill="x")
         entry.bind("<Return>", lambda e: self.app._submit_input())

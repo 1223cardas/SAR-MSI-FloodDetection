@@ -2,6 +2,7 @@ import os
 import threading
 import rasterio
 from rasterio.enums import Resampling
+import numpy as np
 
 from .config import NODATA_VALUE
 from .preview import save_preview_png, show_preview_window
@@ -40,6 +41,41 @@ def _wait_if_paused(stop_event, pause_event, progress_callback=None, fraction=0.
 def _emit(progress_callback, fraction, message):
     if progress_callback is not None:
         progress_callback(fraction, message)
+
+
+def _write_google_earth_overlay(path, flood, ref_profile):
+    visible = np.isfinite(flood) & (flood > 0)
+
+    rgb = np.zeros((3,) + flood.shape, dtype="uint8")
+    if np.any(visible):
+        valid = flood[visible]
+        vmin = float(valid.min())
+        vmax = float(valid.max())
+        if vmax <= vmin:
+            vmax = vmin + 1.0
+
+        normalized = np.zeros(flood.shape, dtype="float32")
+        normalized[visible] = (flood[visible] - vmin) / (vmax - vmin)
+        shade = (np.clip(normalized, 0.0, 1.0) * 255).astype("uint8")
+        rgb[0] = shade
+        rgb[1] = shade
+        rgb[2] = shade
+
+    alpha = np.where(visible, 255, 0).astype("uint8")
+    rgba = np.vstack([rgb, alpha[np.newaxis, :, :]])
+
+    profile = ref_profile.copy()
+    profile.update(
+        driver="GTiff",
+        dtype="uint8",
+        count=4,
+        compress="lzw",
+        photometric="RGB",
+        nodata=None,
+    )
+
+    with rasterio.open(path, "w", **profile) as dst:
+        dst.write(rgba)
 
 
 def run_pipeline(
@@ -162,6 +198,8 @@ def run_pipeline(
     profile_flood = profile.copy()
     profile_flood.update(dtype="float32")
     write_raster(os.path.join(work, output_name), flood, profile_flood, 0.0)
+    overlay_name = os.path.splitext(output_name)[0] + "_google_earth.tif"
+    _write_google_earth_overlay(os.path.join(work, overlay_name), flood, profile_flood)
     stats(flood, "NEW FLOOD WITH SCL VALUES", 0.0)
     _emit(progress_callback, 0.9, "Flood calculado e guardado")
     if _should_stop(stop_event, pause_event):

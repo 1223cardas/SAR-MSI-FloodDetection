@@ -76,21 +76,43 @@ def compute_binary_area(mask, transform):
     return water_pixels * pixel_area
 
 
+# def compute_scl_confidence_mask(scl_data):
+#     # Inicializa a matriz com 0.0 (Classes neutras ou sem dados: 0, 1, 7, 11)
+#     confidence = np.zeros_like(scl_data, dtype=np.float32)
+
+#     confidence[
+#         (scl_data == 8) | 
+#         (scl_data == 9) 
+#     ] = 0.1
+
+#     confidence[(scl_data == 3) | (scl_data == 10) | (scl_data == 5)] = 0.2
+
+#     confidence[(scl_data == 4) | (scl_data == 11)] = 0.4
+
+#     confidence[(scl_data == 2)] = 0.6
+
+#     confidence[scl_data == 6] = 1.0
+
+#     return confidence
+
+
 def compute_scl_confidence_mask(scl_data):
-    # Inicializa a matriz com 0.0 (Classes neutras ou sem dados: 0, 1, 7, 11)
     confidence = np.zeros_like(scl_data, dtype=np.float32)
 
-    confidence[
-        (scl_data == 8) | 
-        (scl_data == 9) 
-    ] = 0.1
+    # Atmospheric noise — very low confidence
+    confidence[(scl_data == 8) | (scl_data == 9)] = 0.1   # cloud medium/high
+    confidence[(scl_data == 10)] = 0.1                     # thin cirrus
 
-    confidence[(scl_data == 3) | (scl_data == 10) | (scl_data == 5)] = 0.2
+    # Ambiguous — low confidence
+    confidence[(scl_data == 3)] = 0.2                      # cloud shadow
+    confidence[(scl_data == 2)] = 0.2                      # dark area (was 0.6 — shadows look like water)
+    confidence[(scl_data == 5)] = 0.2                      # unclassified
 
-    confidence[(scl_data == 4) | (scl_data == 11)] = 0.4
+    # Probable — medium confidence
+    confidence[(scl_data == 4)] = 0.5                      # vegetation
+    confidence[(scl_data == 11)] = 0.5                     # snow/ice
 
-    confidence[(scl_data == 2)] = 0.6
-
-    confidence[scl_data == 6] = 1.0
+    # Confirmed — full confidence
+    confidence[scl_data == 6] = 1.0                        # water
 
     return confidence

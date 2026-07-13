@@ -1,71 +1,33 @@
-import os
-import re
-from pathlib import Path
-from glob import glob
-
-from Acquisition.acquireProducts import acquireEntryFromLog
-from mainconfig import OUTPUT_DIR
-from .pclasses import Product, Bands
+from Acquisition.acquireProducts import discoverProducts as shared_discoverProducts
+from Acquisition.acquireProducts import getEntry as shared_getEntry
 from .config import S2_COLLECTION_NAME
+from .pclasses import Product, Bands
+
+from pathlib import Path
+import re
 
 
 def getEntry() -> dict:
-	print("Discovering products...")
-	csvEntry = acquireEntryFromLog(S2_COLLECTION_NAME)
-
-	if csvEntry is None:
-		raise FileNotFoundError(
-			"No products found in data/.\n"
-			"Please run the acquisition process first to create log entries."
-	)
-
-	return csvEntry.to_dict()
+	return shared_getEntry(S2_COLLECTION_NAME)
 
 
 def discoverProducts(entry: dict) -> list[Product]:
-    bef = Product(entry["beforeId"])
-    aft = Product(entry["afterId"])
-
-    products = [bef, aft]
-    if not all(p.name for p in products):
-        raise ValueError(
-            "Both 'before' and 'after' product IDs must be present in the log entry. "
-            "Please check the log and ensure both products are listed."
-        )
-	
-    downloads = list(OUTPUT_DIR.iterdir())
-
-    for p in products:
-        for file in downloads:
-            if file.name.startswith(p.name):
-                p.path = file
-	
-    if not all(p.path is not None for p in products):
-        raise FileNotFoundError(
-            "Could not find both product files in the output directory. "
-            "Please ensure the products are present and try again."
-        )
-
-    return products
+	return shared_discoverProducts(entry)
 
 
 def _band_pair_key(path) -> str:
-    name = os.path.basename(path)
-    # Normaliza os tokens de banda e resolução para dar match no mesmo par de cena.
-    key_name = re.sub(r"_(B0[38]_10m|SCL_20m)\.jp2$", "_normalized.jp2", name)
-    return key_name
+    """Normalize band and resolution tokens to align matching tile captures."""
+    return re.sub(r"_(B0[38]_10m|SCL_20m)\.jp2$", "_normalized.jp2", path.name)
 
 
 def _discover_band_pairs_in_safe(product_dir: Path) -> list[Bands]:
-    product_dir = Path(product_dir)
-
-    b3_pattern = os.path.join(product_dir, "GRANULE", "*", "IMG_DATA", "R10m", "*_B03_10m.jp2")
-    b8_pattern = os.path.join(product_dir, "GRANULE", "*", "IMG_DATA", "R10m", "*_B08_10m.jp2")
-    scl_pattern = os.path.join(product_dir, "GRANULE", "*", "IMG_DATA", "R20m", "*_SCL_20m.jp2")
-
-    b3_matches = sorted(glob(b3_pattern))
-    b8_matches = sorted(glob(b8_pattern))
-    scl_matches = sorted(glob(scl_pattern))
+    """Scan an individual .SAFE architecture directory to identify matching band triplets."""
+    product_path = Path(product_dir)
+    
+    # Locate bands dynamically under the granule structure using pathlib globbing
+    b3_matches = sorted(product_path.rglob("GRANULE/*/IMG_DATA/R10m/*_B03_10m.jp2"))
+    b8_matches = sorted(product_path.rglob("GRANULE/*/IMG_DATA/R10m/*_B08_10m.jp2"))
+    scl_matches = sorted(product_path.rglob("GRANULE/*/IMG_DATA/R20m/*_SCL_20m.jp2"))
 
     b3_by_key = {_band_pair_key(p): p for p in b3_matches}
     b8_by_key = {_band_pair_key(p): p for p in b8_matches}
@@ -73,102 +35,84 @@ def _discover_band_pairs_in_safe(product_dir: Path) -> list[Bands]:
 
     common_keys = b3_by_key.keys() & b8_by_key.keys() & scl_by_key.keys()
 
-    product = Product(
-        name=product_dir.name,
-        path=product_dir
-    )
+    product = Product(name=product_path.name, path=product_path)
+    try:
+        product.extractDateFromProduct()
+    except ValueError:
+        pass  # Fallback to datetime.min if pattern parsing fails
 
-    bands = []
+    bands_list = []
     for k in sorted(common_keys):
         b3 = b3_by_key[k]
-        b8 = b8_by_key[k]
-        scl = scl_by_key[k]
-        granule = Path(b3).parents[3].name
+        granule = b3.parents[3].name  # Extracts the unique Granule folder name safely
 
-        bands.append(
+        bands_list.append(
             Bands(
                 product=product,
                 granule=granule,
                 b3=str(b3),
-                b8=str(b8),
-                scl=str(scl),
+                b8=str(b8_by_key[k]),
+                scl=str(scl_by_key[k]),
             )
         )
 
-    return bands
+    return bands_list
 
 
-def _discover_all_band_pairs(imagens_dir) -> list[Bands]:
-    entry = getEntry()
-    products = discoverProducts(entry)
-
-    pairs: list[Bands] = []
-    for product_dir in products:
-        pairs.extend(_discover_band_pairs_in_safe(product_dir.path))
-
+def _extract_products_band_pairs(products: list[Product]) -> list[Bands]:
+    """Extract and aggregate all historical band pairs across verified products."""
+    pairs = []
+    for p in products:
+        pairs.extend(_discover_band_pairs_in_safe(p.path))
     return pairs
 
 
-def _as_bands(pair) -> Bands:
-    if isinstance(pair, Bands):
-        return pair
-
-    safe_name = pair.get("safe_name") or Path(pair.get("safe_dir", "")).name
-    safe_dir = Path(pair.get("safe_dir", "")) if pair.get("safe_dir") else Path()
-    return Bands(
-        product=Product(name=safe_name, path=safe_dir),
-        granule=pair.get("granule", ""),
-        b3=pair["b3"],
-        b8=pair["b8"],
-        scl=pair.get("scl", ""),
-    )
-
-
-def _tile_and_date_from_b3(b3_path: str) -> tuple[str, str]:
+def _tile_from_b3(b3_path: str) -> str:
+    """Extract target MGRS tile code identifier out of a band file name."""
     name = Path(b3_path).name
-    tile = name.split("_")[0] if "_" in name else ""
-    m = re.search(r"_(\d{8}T\d{6})_", name)
-    date_token = m.group(1) if m else ""
-    return tile, date_token
+    return name.split("_")[0] if "_" in name else ""
 
 
-def discover_all_band_pairs(imagens_dir, entry: dict | None = None) -> tuple[Bands, Bands]:
-    if entry is None:
-        raw_pairs = _discover_all_band_pairs(imagens_dir)
-    else:
-        products = discoverProducts(entry)
-        raw_pairs = []
-        for product_dir in products:
-            raw_pairs.extend(_discover_band_pairs_in_safe(product_dir.path))
-
-    pairs = [_as_bands(p) for p in raw_pairs]
+def discover_all_band_pairs(entry: dict | None = None) -> tuple[Bands, Bands]:
+    """
+    Auto-detect target scene acquisitions tracking continuous changes between periods.
+    Returns a tuple containing the (before, after) structured asset layers.
+    """
+    target_entry = entry if entry is not None else getEntry()
+    products = discoverProducts(target_entry)
+    
+    pairs = _extract_products_band_pairs(products)
 
     if len(pairs) < 2:
         raise FileNotFoundError(
-            "Pelo menos 2 pares de bandas B03/B08/SCL são necessários nos produtos .SAFE em: "
-            f"{imagens_dir}"
+            f"At least 2 baseline B03/B08/SCL band pairs are required in .SAFE"
         )
 
+    # Group paired records using localized geographic tiles
     by_tile: dict[str, list[Bands]] = {}
     for p in pairs:
-        tile, _ = _tile_and_date_from_b3(p.b3)
+        tile = _tile_from_b3(p.b3)
         by_tile.setdefault(tile, []).append(p)
 
+    # Filter tiles that have enough acquisitions to build a time-series pair
     candidate_tiles = [t for t, vals in by_tile.items() if t and len(vals) >= 2]
+    
     if candidate_tiles:
         chosen_tile = sorted(candidate_tiles)[0]
-        selected = sorted(by_tile[chosen_tile], key=lambda p: _tile_and_date_from_b3(p.b3)[1])
+        # Sort based on the verified datetime parsed within Product classes
+        selected = sorted(by_tile[chosen_tile], key=lambda x: x.product.date)
         before, after = selected[0], selected[-1]
     else:
-        selected = sorted(pairs, key=lambda p: _tile_and_date_from_b3(p.b3)[1])
+        # Fallback sorting over general stack acquisitions if no dual matches share a single tile
+        selected = sorted(pairs, key=lambda x: x.product.date)
         before, after = selected[0], selected[1]
 
-    print("\nAuto-selected bands:")
-    print("B03 before :", before.b3)
-    print("B08 before :", before.b8)
-    print("SCL before (20m):", before.scl)
-    print("B03 after  :", after.b3)
-    print("B08 after  :", after.b8)
-    print("SCL after (20m) :", after.scl)
+    print("\n[INFO] Auto-selected band context pairs:")
+    print(f"|\tB03 Before : {before.b3}")
+    print(f"|\tB08 Before : {before.b8}")
+    print(f"|\tSCL Before : {before.scl} (20m)")
+    print(f"|\tB03 After  : {after.b3}")
+    print(f"|\tB08 After  : {after.b8}")
+    print(f"|\tSCL After  : {after.scl} (20m)")
 
     return before, after

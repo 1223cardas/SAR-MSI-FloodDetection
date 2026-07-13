@@ -8,14 +8,14 @@ import shutil
 paths: dict[str, Path] = {}
 
 
-def ensureDirsExist():
+def _ensureDirsExist():
     for d in paths.values():
         if not d.exists():
             print(f"\n|\t{d} doesn't exist. Creating directory...")
             d.mkdir(parents=True, exist_ok=True)
 
 
-def cleanupProcessingInCache():
+def _cleanupProcessingInCache():
     if paths["cache"].exists():
         for f in glob.glob(str(paths["cache"] / "*_PROCESSING.*")):
             try:
@@ -27,6 +27,12 @@ def cleanupProcessingInCache():
                 print(f"|\tWarning: Could not delete {f}. Reason: {e}")
 
 
+def cleanupTIFSInCache():
+    if paths["cache"].exists():
+        for f in glob.glob(str(paths["cache"] / "*.tif")):
+            os.remove(f)
+
+
 def check_directories() -> dict[str, Path]:
     """Check and create necessary directories, and return a dictionary of the paths."""
     print("Checking directories...", end=" ")
@@ -34,7 +40,6 @@ def check_directories() -> dict[str, Path]:
     project_root = os.getcwd()
     s1_root = Path(project_root) / "S1"
     s1_processing_path = s1_root / "Processing" 
-
 
     out_dir = s1_root / "output"
     workflow_dir = s1_processing_path / "workflows"
@@ -49,21 +54,15 @@ def check_directories() -> dict[str, Path]:
         }
     )
 
-    cleanupProcessingInCache()
+    _cleanupProcessingInCache()
     cleanupTIFSInCache()
-    ensureDirsExist()
+    _ensureDirsExist()
 
     print("Done.")
     return paths
 
 
-def cleanupTIFSInCache():
-    if paths["cache"].exists():
-        for f in glob.glob(str(paths["cache"] / "*.tif")):
-            os.remove(f)
-
-
-def build_file(dir_path: Path, base_name: str) -> Path:
+def _build_file(dir_path: Path, base_name: str) -> Path:
     """Build a file path in the specified directory with the given base name."""
     path = dir_path / base_name
     files_in_dir = list(path.parent.glob(f"{base_name}*"))
@@ -75,11 +74,11 @@ def build_file(dir_path: Path, base_name: str) -> Path:
 
 
 def build_cache_file(base_name: str) -> Path:
-    return build_file(paths["cache"], base_name)
+    return _build_file(paths["cache"], base_name)
 
 
 def build_output_file(base_name: str) -> Path:
-    return build_file(paths["out"], base_name)
+    return _build_file(paths["out"], base_name)
 
 
 def checkEntryInOutput(entry: dict) -> tuple[str, str, Path | None]:

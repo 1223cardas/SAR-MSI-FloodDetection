@@ -1,37 +1,27 @@
 from enum import Enum
 
 MODE_CONFIG = {
-    "all": {
-        "title": "Pipeline Completo",
-        "fields": [
-            ("output S2",        "s2_out"),
-            ("Threshold",        "threshold"),
-            ("S1 TIF",           "s1_tif"),
-            ("S2 TIF",           "s2_tif"),
-            ("output final",     "out_tif"),
-        ],
-    },
     "auto": {
-        "title": "Pipeline automático",
+        "title": "Automatic pipeline",
         "fields": [],
     },
     "s1": {
-        "title": "Pipeline Sentinel-1",
+        "title": "Sentinel-1 pipeline",
         "fields": [],
     },
     "s2": {
-        "title": "Pipeline Sentinel-2",
+        "title": "Sentinel-2 pipeline",
         "fields": [
-            ("output S2",        "s2_out"),
-            ("Threshold",        "threshold"),
+            ("S2 output file", "s2_out"),
+            ("Threshold", "threshold"),
         ],
     },
     "fusion": {
-        "title": "Fusão",
+        "title": "S1 and S2 Fusion",
         "fields": [
             ("S1 TIF",       "s1_tif"),
             ("S2 TIF",       "s2_tif"),
-            ("output final", "out_tif"),
+            ("Final output", "out_tif"),
         ],
     },
 }
@@ -52,6 +42,3 @@ class RunState(Enum):
     COMPLETED      = "COMPLETED"
     FAILED         = "FAILED"
     CANCELED       = "CANCELED"
-
-class PromptCancelledError(RuntimeError):
-    pass

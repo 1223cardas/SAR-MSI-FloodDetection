@@ -1,10 +1,6 @@
 from dataclasses import dataclass
-from pathlib import Path
 
-@dataclass
-class Product:
-    name: str
-    path: Path = Path()
+from common.models import Product
 
 
 @dataclass

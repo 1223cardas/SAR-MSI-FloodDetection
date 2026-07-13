@@ -5,26 +5,32 @@ import numpy as np
 import rasterio
 from rasterio.warp import Resampling, reproject
 import threading
+from matplotlib import cm
+from matplotlib import colors as mcolors
 
 
-def _should_stop(stop_event, pause_event, progress_callback=None, fraction=0.0):
-    if stop_event is not None and stop_event.is_set():
-        if progress_callback is not None:
-            progress_callback(fraction, "Cancelado")
+def _should_stop(stop_event: threading.Event | None, pause_event: threading.Event | None, progress_callback=None, fraction: float = 0.0) -> bool:
+    """Check execution status flags and handle pipeline interruptions."""
+    if stop_event and stop_event.is_set():
+        if progress_callback:
+            progress_callback(fraction, "Cancelled")
         return True
-    if pause_event is not None and pause_event.is_set():
-        if progress_callback is not None:
-            progress_callback(fraction, "Pausado")
+
+    if pause_event and pause_event.is_set():
+        if progress_callback:
+            progress_callback(fraction, "Paused")
         while pause_event.is_set():
-            if stop_event is not None and stop_event.is_set():
-                if progress_callback is not None:
-                    progress_callback(fraction, "Cancelado")
+            if stop_event and stop_event.is_set():
+                if progress_callback:
+                    progress_callback(fraction, "Cancelled")
                 return True
             threading.Event().wait(0.2)
-    return stop_event is not None and stop_event.is_set()
+
+    return False
 
 
 def _load_raster(path: Path) -> tuple[np.ndarray, dict]:
+    """Load a geospatial raster band directly into a floating point NumPy matrix."""
     with rasterio.open(path) as src:
         data = src.read(1).astype("float32")
         profile = src.profile.copy()
@@ -32,6 +38,7 @@ def _load_raster(path: Path) -> tuple[np.ndarray, dict]:
 
 
 def _align_to_reference(data: np.ndarray, source_profile: dict, reference_profile: dict) -> np.ndarray:
+    """Reproject and align geospatial source data matching the reference grid context."""
     same_grid = (
         source_profile.get("crs") == reference_profile.get("crs")
         and source_profile.get("transform") == reference_profile.get("transform")
@@ -58,61 +65,85 @@ def _align_to_reference(data: np.ndarray, source_profile: dict, reference_profil
     return aligned
 
 
-def fuse_flood_bits(s1_flood: np.ndarray, s2_flood: np.ndarray) -> np.ndarray:
-    if s1_flood.shape != s2_flood.shape:
-        raise ValueError("Flood rasters must have the same shape before fusion")
+# def fuse_flood_bits(s1_flood: np.ndarray, s2_flood: np.ndarray) -> np.ndarray:
+#     """Blend structural binary water detections with categorical confidence masks."""
+#     if s1_flood.shape != s2_flood.shape:
+#         raise ValueError("Flood rasters must have the same shape before fusion")
 
-    # S1 contributes as binary water mask (0 or 1)
-    s1_bits = np.where(np.isfinite(s1_flood) & (s1_flood > 0), 1.0, 0.0).astype("float32")
+#     # S1 contributes as a binary water mask (0 or 1)
+#     s1_bits = np.where(np.isfinite(s1_flood) & (s1_flood > 0), 1.0, 0.0).astype("float32")
+#     # S2 values are preserved as continuous confidences/classes
+#     s2_weights = np.where(np.isfinite(s2_flood), s2_flood, 0.0).astype("float32")
 
-    # S2 values are preserved as continuous confidences/classes
-    s2_weights = np.where(np.isfinite(s2_flood), s2_flood, 0.0).astype("float32")
+#     return s1_bits + s2_weights
 
-    return s1_bits + s2_weights
+def fuse_flood_bits(s1_flood: np.ndarray, s2_flood: np.ndarray,
+                    min_blob_px: int = 200) -> np.ndarray:
+    from scipy.ndimage import label, binary_opening
+
+    s1 = np.where(np.isfinite(s1_flood) & (s1_flood > 0), 1.0, 0.0).astype("float32")
+    s2 = np.where(np.isfinite(s2_flood), s2_flood, 0.0).astype("float32")
+    s2_available = (s2 > 0.1).astype("float32")
+
+    fused = np.where(
+        s2_available > 0,
+        s1 * s2,
+        s1 * 0.5
+    ).astype("float32")
+
+    # Remove isolated small blobs — these are field-level false positives,
+    # not spatially coherent flood bodies
+    flood_binary = (fused > 0).astype(bool)
+    flood_binary = binary_opening(flood_binary, structure=np.ones((3, 3)))
+
+    labeled, n = label(flood_binary) # type:ignore
+    if n > 0:
+        from scipy.ndimage import sum as nd_sum
+        sizes = nd_sum(flood_binary, labeled, range(1, n + 1))
+        remove = np.where(np.array(sizes) < min_blob_px)[0] + 1
+        flood_binary[np.isin(labeled, remove)] = False
+
+    # Zero out the fused values where blobs were removed
+    fused[~flood_binary] = 0.0
+
+    return fused
 
 
 def fuse_flood_outputs(
-    s1_flood_path: str | Path,
-    s2_flood_path: str | Path,
-    output_path: str | Path | None = None,
+    s1_flood_path: Path,
+    s2_flood_path: Path,
+    output_path: Path,
     progress_callback=None,
     stop_event=None,
     pause_event=None,
 ) -> Path:
     """Fuse S1 and S2 flood outputs and save a float32 continuous confidence map."""
-    s1_flood_path = Path(s1_flood_path)
-    s2_flood_path = Path(s2_flood_path)
-    output_path = Path(output_path) if output_path is not None else s1_flood_path.with_name("flood_fused_continuous.tif")
+    progress = progress_callback or (lambda *_args, **_kwargs: None)
 
     if _should_stop(stop_event, pause_event, progress_callback, 0.0):
         return output_path
 
+    progress(0.15, "Loading S1 raster...")
     s1_data, s1_profile = _load_raster(s1_flood_path)
-    if progress_callback is not None:
-        progress_callback(0.15, "A carregar raster S1")
     if _should_stop(stop_event, pause_event, progress_callback, 0.15):
         return output_path
 
+    progress(0.3, "Loading S2 raster...")
     s2_data, s2_profile = _load_raster(s2_flood_path)
-    if progress_callback is not None:
-        progress_callback(0.3, "A carregar raster S2")
     if _should_stop(stop_event, pause_event, progress_callback, 0.3):
         return output_path
     
+    progress(0.55, "Aligning S2 raster with S1...")
     s2_data = _align_to_reference(s2_data, s2_profile, s1_profile)
-    if progress_callback is not None:
-        progress_callback(0.55, "A alinhar raster S2")
     if _should_stop(stop_event, pause_event, progress_callback, 0.55):
         return output_path
 
+    progress(0.75, "Fusing rasters...")
     fused_continuous = fuse_flood_bits(s1_data, s2_data)
-    if progress_callback is not None:
-        progress_callback(0.75, "A fundir rasters")
     if _should_stop(stop_event, pause_event, progress_callback, 0.75):
         return output_path
 
     output_profile = s1_profile.copy()
-    output_profile.pop("nodata", None)
     output_profile.update(
         driver="GTiff",
         dtype="float32",
@@ -122,18 +153,59 @@ def fuse_flood_outputs(
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
     with rasterio.open(output_path, "w", **output_profile) as dst:
         dst.write(fused_continuous, 1)
 
-    if progress_callback is not None:
-        progress_callback(1.0, "Fusão concluída")
+    # Also write a separate colorized RGB(A) GeoTIFF for overlay use.
+    try:
+        color_path = output_path.with_name(output_path.stem + ".color.tif")
+        finite = np.isfinite(fused_continuous)
+        if finite.any():
+            valid = fused_continuous[finite]
+            vmin = float(valid.min())
+            vmax = float(valid.max())
+            if vmax <= vmin:
+                vmax = vmin + 1.0
 
-    print(f"\n[FUSION] Concluído! Ficheiro de escala contínua guardado em: {output_path.name}")
+            norm = mcolors.Normalize(vmin=vmin, vmax=vmax, clip=True)
+            cmap = cm.get_cmap("viridis")
+            rgba = cmap(norm(np.nan_to_num(fused_continuous, nan=vmin)))
+
+            rgb = (rgba[:, :, :3] * 255).astype("uint8")
+            transparent_mask = (~finite) | (fused_continuous == 0)
+            alpha = np.where(transparent_mask, 0, 255).astype("uint8")
+
+            rgb_bands = np.transpose(rgb, (2, 0, 1))
+            alpha_band = alpha[np.newaxis, :, :]
+            rgba_bands = np.vstack([rgb_bands, alpha_band])
+
+            color_profile = s1_profile.copy()
+            color_profile.update(
+                driver="GTiff",
+                dtype="uint8",
+                count=4,
+                compress="lzw",
+                photometric="RGB",
+                nodata=None,
+            )
+
+            with rasterio.open(color_path, "w", **color_profile) as dstc:
+                dstc.write(rgba_bands)
+
+            print(f"[FUSION] Success! Colorized overlay saved at: {color_path.name}")
+    except Exception as e:
+        print(f"[FUSION] Warning: failed to write colorized overlay GeoTIFF: {e}")
+
+    progress(1.0, "Fusion complete")
+
+    print(f"\n[FUSION] Success! Continuous scale file saved at: {output_path.name}")
+
     unique_values = np.unique(fused_continuous)
     formatted_values = [
-        str(int(value)) if np.isclose(value, round(float(value))) else f"{float(value):g}"
+        str(int(value)) if np.isclose(value, round(value)) else f"{value:g}"
         for value in unique_values
     ]
-    print(f" -> Valores únicos gerados na fusão: [{', '.join(formatted_values)}]")
+    print(f" -> Unique values generated during fusion: [{', '.join(formatted_values)}]")
 
     return output_path

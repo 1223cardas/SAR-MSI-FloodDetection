@@ -34,36 +34,11 @@
     </parameters>
   </node>
 
-  <node id="ReadSlopeMask">
-    <operator>Read</operator>
-    <sources/>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <file>${slope_mask_tif}</file>
-      <copyMetadata>false</copyMetadata>
-    </parameters>
-  </node>
-
-  <node id="RenameSlopeMask">
-    <operator>BandMaths</operator>
-    <sources><sourceProduct refid="ReadSlopeMask"/></sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <targetBands>
-        <targetBand>
-          <name>slope_mask</name>
-          <type>int8</type>
-          <expression>band_1</expression>
-          <noDataValue>0</noDataValue>
-        </targetBand>
-      </targetBands>
-    </parameters>
-  </node>
-
   <node id="BandMerge">
     <operator>BandMerge</operator>
     <sources>
       <sourceProduct   refid="ReadStack"/>
       <sourceProduct.1 refid="RenameElevCeiling"/>
-      <sourceProduct.2 refid="RenameSlopeMask"/>
     </sources>
     <parameters class="com.bc.ceres.binding.dom.XppDomElement">
       <geographicError>1.0E-5</geographicError>
@@ -79,38 +54,32 @@
           <name>Flood</name>
           <type>float32</type>
           <expression>
-            if ${has_data}
-            AND elevation &lt; elev_ceiling
-            AND slope_mask == 1
-            AND (
-              (
-                <!-- CLASSE URBANA -->
-                land_cover_ESA_WorldCover == 50
-                AND (
-                  (${vh_norm} &lt; ${thr_urban_vh} AND ${vv_norm} &lt; ${thr_urban_vv})
-                  OR 
-                  (${vv_norm} &gt; 3.5 AND ${vh_norm} &lt; 0.0)
-                )
-              )
-              OR
-              (
-                <!-- CLASSE FLORESTA -->
-                land_cover_ESA_WorldCover == 10
-                AND (${vh_norm} &lt; ${thr_forest_vh} AND ${vv_norm} &lt; ${thr_forest_vv})
-              )
-              OR
-              (
-                <!-- CLASSE CAMPOS ABERTOS / AGRICULTURA -->
-                land_cover_ESA_WorldCover != 50
-                AND land_cover_ESA_WorldCover != 10
-                AND (
-                  (${vh_norm} &lt; ${thr_open_vh} AND ${vv_norm} &lt; ${thr_open_vv})
-                  OR
-                  (${vv_norm} &lt; -5.0)
-                )
-              )
+          if ${has_data}
+          AND elevation &lt; elev_ceiling
+          AND (
+            (
+              <!-- URBAN CLASS -->
+              land_cover_ESA_WorldCover == 50
+              AND ${vh_norm} &lt; ${thr_urban_vh}
+              AND ${vv_norm} &lt; ${thr_urban_vv}
             )
-            then 1 else NaN
+            OR
+            (
+              <!-- FOREST CLASS -->
+              land_cover_ESA_WorldCover == 10
+              AND ${vh_norm} &lt; ${thr_forest_vh}
+              AND ${vv_norm} &lt; ${thr_forest_vv}
+            )
+            OR
+            (
+              <!-- OPEN LAND / AGRICULTURE CLASS -->
+              land_cover_ESA_WorldCover != 50
+              AND land_cover_ESA_WorldCover != 10
+              AND ${vv_norm} &lt; ${thr_open_vv}
+              AND ${vh_norm} &lt; 0.0
+            )
+          )
+          then 1 else NaN
           </expression>
           <noDataValue>NaN</noDataValue>
         </targetBand>

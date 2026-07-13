@@ -14,6 +14,8 @@ from S2 import preview as s2_preview
 from S1.Processing import processing as s1_processing
 from S1.Processing import snap, paths
 
+from mainconfig import OUTPUT_DIR
+
 
 @dataclass
 class ProcessorResult:
@@ -35,13 +37,23 @@ def _entry_timestamp(entry: dict | None = None) -> str:
     return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 
-def build_s2_output_path(out_dir: str | Path, entry: dict | None = None, threshold: float | None = None) -> Path:
+def build_s2_output_path(out_dir: str | Path, entry: dict | None = None) -> Path:
     base_dir = Path(out_dir)
     if not entry:
         return base_dir / "flood.tif"
 
     place_query = _slugify_filename(str(entry.get("place_query", "")))
-    timestamp = _slugify_filename(_entry_timestamp(entry))
+    if place_query:
+        existing_matches = sorted(
+            base_dir.glob(f"{place_query}_*_flood.tif"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        if existing_matches:
+            return existing_matches[0]
+
+    timestamp = _entry_timestamp(entry)
+    timestamp = _slugify_filename(timestamp or datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     stem = f"{place_query}_{timestamp}_flood"
     return base_dir / f"{stem}.tif"
 
@@ -149,6 +161,7 @@ class S1Processor(Processor):
             self._progress(0.0, "Erro S1")
             raise
 
+
 class S2Processor(Processor):
 
     @property
@@ -163,12 +176,9 @@ class S2Processor(Processor):
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
-        self.out_dir     = out_dir
-        self.preview     = preview
-        self.threshold   = threshold
-
-    def _cached_output(self, entry: dict | None = None) -> Path:
-        return build_s2_output_path(self.out_dir, entry=entry, threshold=self.threshold)
+        self.out_dir = out_dir
+        self.preview = preview
+        self.threshold = threshold
 
     def _resolve_entry(self, entry: dict | None) -> dict | None:
         if entry is not None:
@@ -179,28 +189,26 @@ class S2Processor(Processor):
             return None
         return resolved if isinstance(resolved, dict) else resolved.to_dict()
 
-    def _ensure_processing_timestamp(self, entry: dict) -> dict:
-        if str(entry.get("processed_at", "")).strip():
-            return entry
 
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        updated_entry = dict(entry)
-        updated_entry["processed_at"] = timestamp
+    def _build_output_path(self, entry: dict | None = None) -> Path:
+        return build_s2_output_path(self.out_dir, entry=entry)
 
-        try:
-            updateLogEntry(entry, {"processed_at": timestamp})
-        except Exception:
-            pass
 
-        return updated_entry
+    def _latest_output(self) -> Path | None:
+        out_dir = Path(self.out_dir)
+        if not out_dir.exists():
+            return None
 
-    def run(self, run_processing: bool, view: bool, entry = None) -> ProcessorResult:
-        output_path = None
+        matches = sorted(
+            out_dir.glob("*_flood.tif"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        return matches[0] if matches else None
+
+    def run(self, run_processing: bool, view: bool, entry: dict | None = None) -> ProcessorResult:
+        output_path: Path | None = None
         resolved_entry = self._resolve_entry(entry)
-        if resolved_entry is not None:
-            resolved_entry = self._ensure_processing_timestamp(resolved_entry)
-
-        cached_output = self._cached_output(resolved_entry)
 
         try:
             self._progress(0.0, "Iniciando S2")
@@ -209,13 +217,24 @@ class S2Processor(Processor):
                 if self._check():
                     return self._abort("Cancelado antes de iniciar S2")
 
-                if cached_output.exists():
+                output_path = self._build_output_path(resolved_entry)
+                if output_path.exists():
+                    if resolved_entry is not None:
+                        try:
+                            updateLogEntry(resolved_entry, {"processed_at": _entry_timestamp(resolved_entry)})
+                        except Exception:
+                            pass
                     self._progress(1.0, "S2 concluído")
-                    print(f"[s2] a usar ficheiro existente: {cached_output}")
-                    return ProcessorResult(name=self._name, output_path=cached_output)
+                    return ProcessorResult(name=self._name, output_path=output_path)
+
+                if resolved_entry is not None:
+                    try:
+                        updateLogEntry(resolved_entry, {"processed_at": ""})
+                    except Exception:
+                        pass
 
                 self._progress(0.1, "A descobrir produtos S2")
-                before, after = s2_discovery.discover_all_band_pairs("downloads", resolved_entry)
+                before, after = s2_discovery.discover_all_band_pairs(resolved_entry)
 
                 if self._check():
                     return self._abort("Cancelado após descoberta S2")
@@ -225,7 +244,7 @@ class S2Processor(Processor):
                     before,
                     after,
                     self.out_dir,
-                    output_name=cached_output.name,
+                    output_name=output_path.name,
                     preview=self.preview,
                     threshold=self.threshold,
                     progress_callback=self._progress_cb,
@@ -238,23 +257,39 @@ class S2Processor(Processor):
 
                 self._progress(0.9, "Pipeline S2 concluído")
 
-                if cached_output.exists():
-                    output_path = cached_output
+                if resolved_entry is not None:
+                    try:
+                        timestamp = _entry_timestamp(resolved_entry)
+                        updateLogEntry(resolved_entry, {"processed_at": timestamp})
+                    except Exception:
+                        pass
 
-            if view and not output_path:
-                if not cached_output.exists():
+                if output_path.exists():
+                    output_path = output_path
+                else:
+                    output_path = self._latest_output()
+
+            if view:
+                if self._check():
+                    return self._abort("Cancelado antes de visualizar S2")
+
+                if output_path is None or not output_path.exists():
+                    output_path = self._latest_output()
+
+                if output_path is None:
                     raise FileNotFoundError(f"S2 output não encontrado em '{self.out_dir}'")
-                output_path = cached_output
 
-            if self.preview and not run_processing:
-                try:
-                    s2_preview.preview_outputs_only(self.out_dir, threshold=self.threshold, flood_path=cached_output)
-                    preview_candidate = Path(self.out_dir) / "preview.png"
-                    if preview_candidate.exists():
-                        output_path = preview_candidate
-                except Exception as e:
-                    print("S2 preview falhou:", e)
-                    raise
+                s2_preview.preview_outputs_only(self.out_dir, threshold=self.threshold, flood_path=output_path)
+                preview_candidate = Path(self.out_dir) / "preview.png"
+                if preview_candidate.exists():
+                    output_path = preview_candidate
+
+            if self.preview and not run_processing and output_path is None:
+                self._progress(0.5, "A gerar preview S2")
+                s2_preview.preview_outputs_only(self.out_dir, threshold=self.threshold, flood_path=None)
+                preview_candidate = Path(self.out_dir) / "preview.png"
+                if preview_candidate.exists():
+                    output_path = preview_candidate
 
             self._progress(1.0, "S2 concluído")
             return ProcessorResult(name=self._name, output_path=output_path)
