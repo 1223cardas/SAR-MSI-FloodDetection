@@ -2,7 +2,14 @@ import numpy as np
 from unittest.mock import patch
 
 from S2.config import EPS, NDWI_THRESHOLD, NODATA_VALUE, SCALE_FACTOR
-from S2.processing import compute_binary_area, compute_ndwi, flood_map, water_mask
+from S2.processing import (
+    compute_binary_area,
+    compute_ndwi,
+    compute_optimal_threshold,
+    compute_scl_confidence_mask,
+    flood_map,
+    water_mask,
+)
 from processors import S2Processor, build_s2_output_path
 
 
@@ -59,9 +66,34 @@ def test_compute_binary_area_counts_pixels():
     assert result == 300.0
 
 
+def test_compute_optimal_threshold_uses_default_for_small_samples():
+    ndwi_before = np.array([[0.1, 0.2], [NODATA_VALUE, 0.3]], dtype="float32")
+    ndwi_after = np.array([[0.4, 0.5], [0.6, NODATA_VALUE]], dtype="float32")
+
+    result = compute_optimal_threshold(ndwi_before, ndwi_after, default_threshold=0.25)
+
+    assert result == 0.25
+
+
+def test_compute_scl_confidence_mask_maps_known_classes():
+    scl = np.array(
+        [[2, 3, 4], [5, 6, 8], [9, 10, 11]],
+        dtype="uint8",
+    )
+
+    result = compute_scl_confidence_mask(scl)
+
+    expected = np.array(
+        [[0.2, 0.2, 0.5], [0.2, 1.0, 0.1], [0.1, 0.1, 0.5]],
+        dtype="float32",
+    )
+
+    np.testing.assert_array_equal(result, expected)
+
+
 def test_s2_processor_reuses_existing_flood_output(tmp_path):
     entry = {"place_query": "Kherson", "crisis_date": "2023-06-06", "processed_at": "2026-07-07_12-34-56"}
-    cached_output = build_s2_output_path(tmp_path, entry=entry, threshold=None)
+    cached_output = build_s2_output_path(tmp_path, entry=entry)
     cached_output.touch()
 
     with patch("processors.s2_discovery.discover_all_band_pairs") as mock_discovery, patch(

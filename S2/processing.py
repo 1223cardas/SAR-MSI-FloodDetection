@@ -76,26 +76,6 @@ def compute_binary_area(mask, transform):
     return water_pixels * pixel_area
 
 
-# def compute_scl_confidence_mask(scl_data):
-#     # Inicializa a matriz com 0.0 (Classes neutras ou sem dados: 0, 1, 7, 11)
-#     confidence = np.zeros_like(scl_data, dtype=np.float32)
-
-#     confidence[
-#         (scl_data == 8) | 
-#         (scl_data == 9) 
-#     ] = 0.1
-
-#     confidence[(scl_data == 3) | (scl_data == 10) | (scl_data == 5)] = 0.2
-
-#     confidence[(scl_data == 4) | (scl_data == 11)] = 0.4
-
-#     confidence[(scl_data == 2)] = 0.6
-
-#     confidence[scl_data == 6] = 1.0
-
-#     return confidence
-
-
 def compute_scl_confidence_mask(scl_data):
     confidence = np.zeros_like(scl_data, dtype=np.float32)
 

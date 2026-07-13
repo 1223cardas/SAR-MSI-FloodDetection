@@ -1,139 +1,56 @@
-import os
-import subprocess
-from unittest.mock import patch, MagicMock
+from datetime import datetime
+
 import numpy as np
-import pytest
-import rasterio
-from rasterio import transform
+import numpy.ma as ma
+from rasterio.crs import CRS
+from rasterio.transform import from_origin
 
-# --- MOCK FUNCTIONS TO SIMULATE YOUR PIPELINE UTILITIES ---
-# (If importing directly from your src, replace these with: from your_module import ...)
-def compute_tile_otsu(array: np.ndarray) -> float:
-    """Simulates Otsu thresholding calculation on an array, ignoring NaNs."""
-    clean_array = array[~np.isnan(array)]
-    if clean_array.size == 0:
-        return -3.0
-    # Simple mock threshold split for testing
-    return float(np.mean(clean_array))
-
-def run_snap_graph(xml_path: str, params: dict) -> bool:
-    """Simulates invoking the SNAP GPT command line tool."""
-    cmd = ["gpt", xml_path]
-    for key, val in params.items():
-        cmd.append(f"-P{key}={val}")
-    
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    return result.returncode == 0
+from common.models import Product
+from S1.Processing.modules import paths as s1_paths
+from S1.Processing.modules.masking import computeFloodArea
+from S1.Processing.modules.paths import build_output_file, checkEntryInOutput
+from S1.Processing.modules.pclasses import ProductData
 
 
-# --- PYTEST FIXTURES ---
+def test_product_extractDateFromProduct_parses_acquisition_time():
+    product = Product(
+        name="S1A_IW_GRDH_1SDV_20210101T123456_20210101T123456_012345_67890_ABCDE.SAFE"
+    )
 
-@pytest.fixture
-def dummy_raster_data():
-    """Generates a clean synthetic 10x10 radar backscatter difference matrix."""
-    # Simulating a background close to 0 dB (no change) and an inundated patch (-5 dB)
-    data = np.zeros((10, 10), dtype=np.float32)
-    data[3:7, 3:7] = -5.0  # Inundated zone
-    data[0, 0] = np.nan    # Include a NaN value to test resilience
-    return data
+    product.extractDateFromProduct()
 
-@pytest.fixture
-def temp_geotiff(tmp_path, dummy_raster_data):
-    """Creates a physical temporary GeoTIFF file to test rasterio interactions."""
-    file_path = tmp_path / "dummy_input.tif"
-    
-    meta = {
-        "driver": "GTiff",
-        "dtype": "float32",
-        "nodata": np.nan,
-        "width": 10,
-        "height": 10,
-        "count": 1,
-        "crs": "EPSG:4326",
-        "transform": transform.from_origin(0, 10, 1, 1)
-    }
-    
-    with rasterio.open(file_path, "w", **meta) as dst:
-        dst.write(dummy_raster_data, 1)
-        
-    return file_path
+    assert product.date == datetime(2021, 1, 1, 12, 34, 56)
 
 
-# --- TEST CASES ---
+def test_build_output_file_uses_configured_output_directory(tmp_path, monkeypatch):
+    monkeypatch.setitem(s1_paths.paths, "out", tmp_path)
 
-class TestRasterProcessing:
+    result = build_output_file("scene_flood.tif")
 
-    def test_compute_tile_otsu_valid_data(self, dummy_raster_data):
-        """Validates that the threshold logic correctly processes numeric arrays and handles NaNs."""
-        threshold = compute_tile_otsu(dummy_raster_data)
-        
-        # The mean of our dummy array should be negative due to the mock flood patch
-        assert isinstance(threshold, float)
-        assert threshold < 0.0
-
-    def test_compute_tile_otsu_all_nan(self):
-        """Ensures the algorithm fallback works when a tile contains only NaN/NoData values."""
-        nan_array = np.full((5, 5), np.nan, dtype=np.float32)
-        threshold = compute_tile_otsu(nan_array)
-        
-        # Should return the safe default threshold fallback
-        assert threshold == -3.0
+    assert result == tmp_path / "scene_flood.tif"
 
 
-class TestPipelineOrchestration:
+def test_checkEntryInOutput_without_previous_timestamp_builds_new_name():
+    entry = {"place_query": "Kherson", "processed_at": ""}
 
-    @patch("subprocess.run")
-    def test_run_snap_graph_success(self, mock_sub_run):
-        """Verifies that the GPT executor constructs and passes the correct XML parameters."""
-        # Mocking successful subprocess execution
-        mock_sub_run.return_value = MagicMock(returncode=0, stdout="Execution finished successfully")
-        
-        xml_file = "createMask.xml"
-        parameters = {
-            "product": "stack.dim",
-            "vh_threshold_tif": "vh_otsu.tif",
-            "output": "output_flood.dim"
-        }
-        
-        success = run_snap_graph(xml_file, parameters)
-        
-        assert success is True
-        # Verify subprocess was called with the correct structure
-        called_args = mock_sub_run.call_args[0][0]
-        assert "gpt" in called_args
-        assert "createMask.xml" in called_args
-        assert "-Pproduct=stack.dim" in called_args
-        assert "-Pvh_threshold_tif=vh_otsu.tif" in called_args
+    name, timestamp, existing = checkEntryInOutput(entry)
 
-    @patch("subprocess.run")
-    def test_run_snap_graph_failure(self, mock_sub_run):
-        """Ensures that CI catches runtime execution failures from the SNAP GPT executable."""
-        # Configure mock to raise a CalledProcessError (simulating a SNAP crash)
-        mock_sub_run.side_effect = subprocess.CalledProcessError(
-            returncode=1, 
-            cmd="gpt", 
-            stderr="Error: NullPointerException in BandMaths operator"
-        )
-        
-        with pytest.raises(subprocess.CalledProcessError):
-            run_snap_graph("createMask.xml", {"product": "corrupted.dim"})
+    assert existing is None
+    assert name == f"Kherson_{timestamp}_flood"
 
 
-class TestRasterIOIntegrity:
+def test_computeFloodArea_counts_flood_pixels_and_area():
+    band = ma.masked_array(np.ones((5, 5), dtype=np.float32), mask=np.zeros((5, 5), dtype=bool))
+    data = ProductData(
+        band=band,
+        transform=from_origin(0, 50, 10, 10),
+        crs=CRS.from_epsg(32629),
+        height=5,
+        width=5,
+    )
 
-    def test_geotiff_metadata_matching(self, temp_geotiff):
-        """Verifies raster metadata profile reading, protecting against shifting coordinates or datatypes."""
-        assert os.path.exists(temp_geotiff)
-        
-        with rasterio.open(temp_geotiff) as src:
-            assert src.count == 1
-            assert src.dtypes[0] == "float32"
-            assert np.isnan(src.nodata)
-            
-            # Read profile back as matrix
-            matrix = src.read(1)
-            assert matrix.shape == (10, 10)
-            assert matrix[5, 5] == -5.0  # Verify target pixel value integrity
+    flood_count, px_area_m2, total_area_m2 = computeFloodArea(data)
 
-
-
+    assert flood_count == 25
+    assert px_area_m2 == 100.0
+    assert total_area_m2 == 2500.0

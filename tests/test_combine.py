@@ -23,12 +23,16 @@ def _write_raster(path: Path, data: np.ndarray) -> None:
 
 
 def test_fuse_flood_bits_sums_continuous_weights():
-    s1 = np.array([[0, 1], [1, 0]], dtype="uint8")
-    s2 = np.array([[0.0, 0.25], [1.5, 2.0]], dtype="float32")
+    s1 = np.ones((20, 20), dtype="uint8")
+    s2 = np.full((20, 20), 0.25, dtype="float32")
+    s2[0, 0] = 0.0
+    s2[1, 1] = 2.0
 
     result = fuse_flood_bits(s1, s2)
 
-    expected = np.array([[0.0, 1.25], [2.5, 2.0]], dtype="float32")
+    expected = np.full((20, 20), 0.25, dtype="float32")
+    expected[0, 0] = 0.5
+    expected[1, 1] = 2.0
     np.testing.assert_allclose(result, expected)
 
 
@@ -37,8 +41,13 @@ def test_fuse_flood_outputs_writes_float32_sum(tmp_path: Path):
     s2_path = tmp_path / "s2_flood.tif"
     out_path = tmp_path / "fused.tif"
 
-    _write_raster(s1_path, np.array([[0, 1], [0, 1]], dtype="uint8"))
-    _write_raster(s2_path, np.array([[1, 0], [0.5, 1.0]], dtype="float32"))
+    s1 = np.ones((20, 20), dtype="uint8")
+    s2 = np.full((20, 20), 0.25, dtype="float32")
+    s2[0, 0] = 0.0
+    s2[1, 1] = 2.0
+
+    _write_raster(s1_path, s1)
+    _write_raster(s2_path, s2)
 
     result_path = fuse_flood_outputs(s1_path, s2_path, out_path)
 
@@ -47,5 +56,7 @@ def test_fuse_flood_outputs_writes_float32_sum(tmp_path: Path):
         assert src.dtypes[0] == "float32"
         data = src.read(1)
 
-    expected = np.array([[1.0, 1.0], [0.5, 2.0]], dtype="float32")
+    expected = np.full((20, 20), 0.25, dtype="float32")
+    expected[0, 0] = 0.5
+    expected[1, 1] = 2.0
     np.testing.assert_allclose(data, expected)
