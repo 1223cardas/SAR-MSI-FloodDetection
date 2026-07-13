@@ -9,8 +9,8 @@ Sentinel-2 (multiespetral).
 REQUISITOS DO SISTEMA
 ================================================================================
 
-- Windows 10+, Linux (Ubuntu 18.04+), ou macOS 10.14+
-- Python 3.8+
+- Windows 10+ ou Linux (Ubuntu 18.04+)
+- Python 3.10+
 - Java Runtime Environment (JRE) 8+ (necessário para SNAP)
 - ~20 GB de espaço livre em disco (para armazenagem de dados de satélite)
 - Conexão à internet para descarregar dados
@@ -25,7 +25,7 @@ PASSO 1: INSTALAÇÃO DO PYTHON
    
 2. Se não tem Python:
    - Aceda a https://www.python.org/downloads/
-   - Descarregue Python 3.10+ (recomendado)
+   - Faça download Python 3.10+ (recomendado)
    - Execute o instalador
    - IMPORTANTE: Marque a opção "Add Python to PATH"
 
@@ -129,7 +129,7 @@ PASSO 6: CONFIGURAR FICHEIRO .ENV
    *** WINDOWS (PowerShell) ***
    Copy-Item .env.example .env
    
-   *** LINUX / macOS ***
+   *** LINUX ***
    cp .env.example .env
 
 2. Abra o ficheiro .env num editor de texto (Notepad, VS Code, etc):
@@ -179,8 +179,6 @@ PASSO 7: TESTAR INSTALAÇÃO
 3. Execute testes unitários:
    python -m pytest -v
 
-4. Se tudo passou, parabéns! Instalação concluída com sucesso!
-
 ================================================================================
 PASSO 8: USAR O PROJETO
 ================================================================================
@@ -209,7 +207,7 @@ SOLUÇÃO:
    - Verifique se o ambiente virtual está ativado (deve ver .venv no prompt)
    - Reinstale dependências: pip install -r requirements.txt
 
-PROBLEMA: "Permission denied" (Linux/macOS)
+PROBLEMA: "Permission denied" (Linux)
 SOLUÇÃO:
    - Execute com permissões: chmod +x interface.py
    - Ou execute com Python: python interface.py
@@ -225,7 +223,7 @@ CRÉDITOS E REFERÊNCIAS
 ================================================================================
 
 Tecnologias Utilizadas:
-- Python 3.8+ - Linguagem de programação
+- Python 3.10+ - Linguagem de programação
 - SNAP (Sentinel Application Platform) - ESA para processamento SAR
 - Rasterio - Processamento de dados raster
 - NumPy/SciPy - Computação numérica
@@ -243,7 +241,7 @@ Ferramentas e Bibliotecas:
 - CustomTkinter - https://github.com/TomSchimansky/CustomTkinter
 - Copernicus - https://copernicus.eu/
 
-Desenvolvedor(es):
+Desenvolvedores:
 [Diogo Cardoso e Paulo Magalhães]
 
 Versão do Projeto: 1.0
