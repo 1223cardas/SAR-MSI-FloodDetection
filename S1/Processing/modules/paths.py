@@ -1,8 +1,9 @@
-from datetime import datetime
 from pathlib import Path
 import glob
 import os
 import shutil
+
+from common.shared_paths import checkEntryInOutput as _shared_checkEntryInOutput
 
 # define the paths variable to be used across modules
 paths: dict[str, Path] = {}
@@ -65,10 +66,6 @@ def check_directories() -> dict[str, Path]:
 def _build_file(dir_path: Path, base_name: str) -> Path:
     """Build a file path in the specified directory with the given base name."""
     path = dir_path / base_name
-    files_in_dir = list(path.parent.glob(f"{base_name}*"))
-
-    if not files_in_dir:
-        return path
 
     return path
 
@@ -82,31 +79,4 @@ def build_output_file(base_name: str) -> Path:
 
 
 def checkEntryInOutput(entry: dict) -> tuple[str, str, Path | None]:
-    stored_date: str = entry.get("processed_at", "")
-
-    dt_str = format(datetime.now(), '%Y-%m-%d_%H-%M-%S')
-    new_naming = f"{entry.get('place_query')}_{dt_str}_flood"
-
-    if stored_date == "":
-        return new_naming, dt_str, None
-
-    entry_naming = f"{entry.get('place_query')}_{stored_date}_flood"
-
-    filecount = 0
-    expected_tif = build_output_file(entry_naming + ".tif")
-    expected_data = build_output_file(entry_naming + ".dim")
-    expected_dim = build_output_file(entry_naming + ".dim")
-
-    for f in (expected_tif, expected_data, expected_dim):
-        if f.exists(): filecount += 1
-
-    if filecount == 0:
-        return new_naming, dt_str, None
-
-    if filecount == 3:
-        return entry_naming, stored_date, expected_tif
-    else:
-        return entry_naming, stored_date, None
-
-
-    
+    return _shared_checkEntryInOutput(entry, build_output_func=build_output_file)

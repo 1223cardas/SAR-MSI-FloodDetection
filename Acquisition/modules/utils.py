@@ -1,6 +1,6 @@
 from .aclasses import LogEntry
-from .acquisition_config import S1_COLLECTION, S2_COLLECTION
 
+from common import S1_COLLECTION, S2_COLLECTION
 
 def displayEntries(entries: list[LogEntry]):
 	for idx, entry in enumerate(entries, start=1):

@@ -1,94 +1,79 @@
 <graph id="Graph">
-  <version>1.0</version>
-  <node id="Read">
-    <operator>Read</operator>
-    <sources/>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <useAdvancedOptions>false</useAdvancedOptions>
-      <file>${product1}</file>
-      <copyMetadata>true</copyMetadata>
-      <bandNames/>
-      <maskNames/>
-    </parameters>
-  </node>
-  <node id="Read(2)">
-    <operator>Read</operator>
-    <sources/>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <useAdvancedOptions>false</useAdvancedOptions>
-      <file>${product2}</file>
-      <copyMetadata>true</copyMetadata>
-      <bandNames/>
-      <maskNames/>
-    </parameters>
-  </node>
-  <node id="CreateStack">
-    <operator>CreateStack</operator>
-    <sources>
-      <sourceProduct refid="Read"/>
-      <sourceProduct.1 refid="Read(2)"/>
-    </sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <masterBands/>
-      <sourceBands/>
-      <resamplingType>BILINEAR_INTERPOLATION</resamplingType>
-      <extent>Master</extent>
-      <initialOffsetMethod>Product Geolocation</initialOffsetMethod>
-    </parameters>
-  </node>
-  <node id="AddElevation">
-    <operator>AddElevation</operator>
-    <sources>
-      <sourceProduct refid="CreateStack"/>
-    </sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <demName>SRTM 3Sec</demName>
-      <demResamplingMethod>BILINEAR_INTERPOLATION</demResamplingMethod>
-      <externalDEMFile/>
-      <externalDEMNoDataValue>0.0</externalDEMNoDataValue>
-      <elevationBandName>elevation</elevationBandName>
-    </parameters>
-  </node>
-  <node id="AddLandCover">
-    <operator>AddLandCover</operator>
-    <sources>
-      <sourceProduct refid="AddElevation"/>
-    </sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <landCoverNames>ESA_WorldCover</landCoverNames>
-      <externalFiles/>
-      <resamplingMethod>NEAREST_NEIGHBOUR</resamplingMethod>
-    </parameters>
-  </node>
-  <node id="Write">
-    <operator>Write</operator>
-    <sources> 
-      <sourceProduct refid="AddLandCover"/>
-    </sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <file>${output}</file>
-      <formatName>BEAM-DIMAP</formatName>
-    </parameters>
-  </node>
-  <applicationData id="Presentation">
-    <Description/>
-    <node id="Read">
-            <displayPosition x="169.0" y="186.0"/>
-    </node>
-    <node id="Read(2)">
-      <displayPosition x="46.0" y="255.0"/>
-    </node>
-    <node id="CreateStack">
-      <displayPosition x="161.0" y="256.0"/>
-    </node>
-    <node id="AddElevation">
-      <displayPosition x="270.0" y="257.0"/>
-    </node>
-    <node id="AddLandCover">
-      <displayPosition x="391.0" y="258.0"/>
-    </node>
-    <node id="Write">
-            <displayPosition x="521.0" y="258.0"/>
-    </node>
-  </applicationData>
+	<version>1.0</version>
+
+	<node id="Read">
+		<operator>Read</operator>
+		<sources/>
+		<parameters class="com.bc.ceres.binding.dom.XppDomElement">
+			<useAdvancedOptions>false</useAdvancedOptions>
+			<file>${product1}</file>
+			<copyMetadata>true</copyMetadata>
+			<bandNames/>
+			<maskNames/>
+		</parameters>
+	</node>
+
+	<node id="Read(2)">
+		<operator>Read</operator>
+		<sources/>
+		<parameters class="com.bc.ceres.binding.dom.XppDomElement">
+			<useAdvancedOptions>false</useAdvancedOptions>
+			<file>${product2}</file>
+			<copyMetadata>true</copyMetadata>
+			<bandNames/>
+			<maskNames/>
+		</parameters>
+	</node>
+
+	<node id="CreateStack">
+		<operator>CreateStack</operator>
+		<sources>
+			<sourceProduct refid="Read"/>
+			<sourceProduct.1 refid="Read(2)"/>
+		</sources>
+		<parameters class="com.bc.ceres.binding.dom.XppDomElement">
+			<masterBands/>
+			<sourceBands/>
+			<resamplingType>BILINEAR_INTERPOLATION</resamplingType>
+			<extent>Master</extent>
+			<initialOffsetMethod>Product Geolocation</initialOffsetMethod>
+		</parameters>
+	</node>
+
+	<node id="AddElevation">
+		<operator>AddElevation</operator>
+		<sources>
+			<sourceProduct refid="CreateStack"/>
+		</sources>
+		<parameters class="com.bc.ceres.binding.dom.XppDomElement">
+			<demName>SRTM 3Sec</demName>
+			<demResamplingMethod>BILINEAR_INTERPOLATION</demResamplingMethod>
+			<externalDEMFile/>
+			<externalDEMNoDataValue>0.0</externalDEMNoDataValue>
+			<elevationBandName>elevation</elevationBandName>
+		</parameters>
+	</node>
+
+	<node id="AddLandCover">
+		<operator>AddLandCover</operator>
+		<sources>
+			<sourceProduct refid="AddElevation"/>
+		</sources>
+		<parameters class="com.bc.ceres.binding.dom.XppDomElement">
+			<landCoverNames>ESA_WorldCover</landCoverNames>
+			<externalFiles/>
+			<resamplingMethod>NEAREST_NEIGHBOUR</resamplingMethod>
+		</parameters>
+	</node>
+
+	<node id="Write">
+		<operator>Write</operator>
+		<sources> 
+			<sourceProduct refid="AddLandCover"/>
+		</sources>
+		<parameters class="com.bc.ceres.binding.dom.XppDomElement">
+			<file>${output}</file>
+			<formatName>BEAM-DIMAP</formatName>
+		</parameters>
+	</node>
 </graph>

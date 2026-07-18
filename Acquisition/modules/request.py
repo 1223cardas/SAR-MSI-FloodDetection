@@ -7,6 +7,7 @@ from .authsession import initSHSession
 from .aclasses import SlugProduct, LogEntry
 from .acquisition_config import *
 
+from common import S1_COLLECTION, S2_COLLECTION
 
 def _printOrbitInfo(product: SlugProduct, productType: str) -> str:
 	return f"(orbit {product.relative_orbit}/{product.orbit_state})" if productType == S1_COLLECTION else ""

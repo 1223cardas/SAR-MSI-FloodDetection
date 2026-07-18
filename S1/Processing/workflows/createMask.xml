@@ -1,98 +1,98 @@
 <graph id="Graph">
-  <version>1.0</version>
+	<version>1.0</version>
 
-  <node id="ReadStack">
-    <operator>Read</operator>
-    <sources/>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <file>${product}</file>
-      <copyMetadata>true</copyMetadata>
-    </parameters>
-  </node>
+	<node id="ReadStack">
+		<operator>Read</operator>
+		<sources/>
+		<parameters class="com.bc.ceres.binding.dom.XppDomElement">
+			<file>${product}</file>
+			<copyMetadata>true</copyMetadata>
+		</parameters>
+	</node>
 
-  <node id="ReadElevCeiling">
-    <operator>Read</operator>
-    <sources/>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <file>${elev_ceiling_tif}</file>
-      <copyMetadata>false</copyMetadata>
-    </parameters>
-  </node>
+	<node id="ReadElevCeiling">
+		<operator>Read</operator>
+		<sources/>
+		<parameters class="com.bc.ceres.binding.dom.XppDomElement">
+			<file>${elev_ceiling_tif}</file>
+			<copyMetadata>false</copyMetadata>
+		</parameters>
+	</node>
 
-  <node id="RenameElevCeiling">
-    <operator>BandMaths</operator>
-    <sources><sourceProduct refid="ReadElevCeiling"/></sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <targetBands>
-        <targetBand>
-          <name>elev_ceiling</name>
-          <type>float32</type>
-          <expression>band_1</expression>
-          <noDataValue>NaN</noDataValue>
-        </targetBand>
-      </targetBands>
-    </parameters>
-  </node>
+	<node id="RenameElevCeiling">
+		<operator>BandMaths</operator>
+		<sources><sourceProduct refid="ReadElevCeiling"/></sources>
+		<parameters class="com.bc.ceres.binding.dom.XppDomElement">
+			<targetBands>
+				<targetBand>
+					<name>elev_ceiling</name>
+					<type>float32</type>
+					<expression>band_1</expression>
+					<noDataValue>NaN</noDataValue>
+				</targetBand>
+			</targetBands>
+		</parameters>
+	</node>
 
-  <node id="BandMerge">
-    <operator>BandMerge</operator>
-    <sources>
-      <sourceProduct   refid="ReadStack"/>
-      <sourceProduct.1 refid="RenameElevCeiling"/>
-    </sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <geographicError>1.0E-5</geographicError>
-    </parameters>
-  </node>
+	<node id="BandMerge">
+		<operator>BandMerge</operator>
+		<sources>
+			<sourceProduct   refid="ReadStack"/>
+			<sourceProduct.1 refid="RenameElevCeiling"/>
+		</sources>
+		<parameters class="com.bc.ceres.binding.dom.XppDomElement">
+			<geographicError>1.0E-5</geographicError>
+		</parameters>
+	</node>
 
-  <node id="CreateFloodMask">
-    <operator>BandMaths</operator>
-    <sources><sourceProduct refid="BandMerge"/></sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <targetBands>
-        <targetBand>
-          <name>Flood</name>
-          <type>float32</type>
-          <expression>
-          if ${has_data}
-          AND elevation &lt; elev_ceiling
-          AND (
-            (
-              <!-- URBAN CLASS -->
-              land_cover_ESA_WorldCover == 50
-              AND ${vh_norm} &lt; ${thr_urban_vh}
-              AND ${vv_norm} &lt; ${thr_urban_vv}
-            )
-            OR
-            (
-              <!-- FOREST CLASS -->
-              land_cover_ESA_WorldCover == 10
-              AND ${vh_norm} &lt; ${thr_forest_vh}
-              AND ${vv_norm} &lt; ${thr_forest_vv}
-            )
-            OR
-            (
-              <!-- OPEN LAND / AGRICULTURE CLASS -->
-              land_cover_ESA_WorldCover != 50
-              AND land_cover_ESA_WorldCover != 10
-              AND ${vv_norm} &lt; ${thr_open_vv}
-              AND ${vh_norm} &lt; 0.0
-            )
-          )
-          then 1 else NaN
-          </expression>
-          <noDataValue>NaN</noDataValue>
-        </targetBand>
-      </targetBands>
-    </parameters>
-  </node>
+	<node id="CreateFloodMask">
+		<operator>BandMaths</operator>
+		<sources><sourceProduct refid="BandMerge"/></sources>
+		<parameters class="com.bc.ceres.binding.dom.XppDomElement">
+			<targetBands>
+				<targetBand>
+					<name>Flood</name>
+					<type>float32</type>
+					<expression>
+					if ${has_data}
+					AND elevation &lt; elev_ceiling
+					AND (
+						(
+							<!-- URBAN CLASS -->
+							land_cover_ESA_WorldCover == 50
+							AND ${vh_norm} &lt; ${thr_urban_vh}
+							AND ${vv_norm} &lt; ${thr_urban_vv}
+						)
+						OR
+						(
+							<!-- FOREST CLASS -->
+							land_cover_ESA_WorldCover == 10
+							AND ${vh_norm} &lt; ${thr_forest_vh}
+							AND ${vv_norm} &lt; ${thr_forest_vv}
+						)
+						OR
+						(
+							<!-- OPEN LAND / AGRICULTURE CLASS -->
+							land_cover_ESA_WorldCover != 50
+							AND land_cover_ESA_WorldCover != 10
+							AND ${vv_norm} &lt; ${thr_open_vv}
+							AND ${vh_norm} &lt; 0.0
+						)
+					)
+					then 1 else NaN
+					</expression>
+					<noDataValue>NaN</noDataValue>
+				</targetBand>
+			</targetBands>
+		</parameters>
+	</node>
 
-  <node id="Write">
-    <operator>Write</operator>
-    <sources><sourceProduct refid="CreateFloodMask"/></sources>
-    <parameters class="com.bc.ceres.binding.dom.XppDomElement">
-      <file>${output}</file>
-      <formatName>BEAM-DIMAP</formatName>
-    </parameters>
-  </node>
+	<node id="Write">
+		<operator>Write</operator>
+		<sources><sourceProduct refid="CreateFloodMask"/></sources>
+		<parameters class="com.bc.ceres.binding.dom.XppDomElement">
+			<file>${output}</file>
+			<formatName>BEAM-DIMAP</formatName>
+		</parameters>
+	</node>
 </graph>

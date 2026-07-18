@@ -3,10 +3,9 @@ import logging
 import sys
 from pathlib import Path
 
-from processors import S1Processor, S2Processor
-from processors import build_s2_output_path
-from Combined.combine import fuse_flood_outputs
 from Acquisition.acquireProducts import acquireEntryFromLogWithBoth
+from processorsImpl import S1Processor, S2Processor
+from Combined.combine import fuse_flood_outputs
 from common import PromptCancelledError
 
 # Configure logging
@@ -14,130 +13,107 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("sar_msi")
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+def _resolve_processor(processor_instance, run_processing: bool, view: bool, entry: dict | None = None) -> Path | None:
+    """Executes a processor workflow and extracts the output_path safely."""
+    result = processor_instance.run(run_processing, view, entry)
+    if result and hasattr(result, "output_path") and result.output_path:
+        return Path(result.output_path)
+    return None
 
-def _find_latest_tif(directory: Path, pattern: str) -> Path | None:
-    """Devolve o TIF mais recente num diretório, ou None se não existir."""
+
+def _find_latest_tif(directory: Path, pattern: str = "*_flood.tif") -> Path | None:
+    """Locates the most recently modified TIF file matching the pattern inside a directory."""
     if not directory.exists():
         return None
-    tifs = list(directory.glob(pattern))
-    return max(tifs, key=lambda p: p.stat().st_mtime) if tifs else None
+    files = list(directory.glob(pattern))
+    return max(files, key=lambda f: f.stat().st_mtime) if files else None
 
 
-def _ask_reuse(path: Path, label: str) -> bool:
-    """Pergunta ao utilizador se quer reutilizar um ficheiro existente."""
-    print(f"\n[{label}] detetado ficheiro existente: {path.name}")
-    answer = input(f"Desejas usar este resultado do {label} e saltar o processamento? (y/n): ").strip().lower()
-    return answer in ("y", "yes", "s", "sim", "")
+def run_s1_pipeline(run: bool, view: bool, entry: dict | None = None) -> Path | None:
+    logger.info("[S1] Starting Sentinel-1 pipeline...")
+    path = _resolve_processor(S1Processor(), run_processing=run, view=view, entry=entry)
+    if path:
+        logger.info("[S1] Flood TIF generated: %s", path)
+    return path
 
 
-def resolve_s1(*, force: bool = False, entry: dict | None = None) -> Path | None:
-    """
-    Resolve o TIF de output do Sentinel-1.
-    Se existir um ficheiro e force=False, pergunta ao utilizador se quer reutilizá-lo.
-    Caso contrário, corre o S1Processor. Devolve o Path ou None em caso de falha.
-    """
-    root_dir = Path(__file__).resolve().parent
-    s1_out_dir = root_dir / "S1" / "output"
-    existing = _find_latest_tif(s1_out_dir, "*_flood.tif")
-
-    if existing and not force and _ask_reuse(existing, "S1"):
-        logger.info("[s1] a usar ficheiro existente.")
-        return existing
-
-    logger.info("[s1] a iniciar S1Processor e SNAP...")
-
-    try:
-        result = S1Processor().run(run_processing=True, view=False, entry=entry)
-        path = _result_to_path(result)
-        if path:
-            return path
-    except PromptCancelledError:
-        raise
-    except Exception:
-        logger.exception("[s1] erro no processamento")
-
-    if existing:
-        logger.warning("[s1 salvaguarda] a usar ficheiro existente após falha do processador.")
-        return existing
-
-    logger.error("[s1] nenhum ficheiro de output encontrado.")
-    return None
+def run_s2_pipeline(run: bool, view: bool, threshold: float | None = None, entry: dict | None = None) -> Path | None:
+    logger.info("[S2] Starting Sentinel-2 pipeline...")
+    path = _resolve_processor(S2Processor(threshold=threshold), run_processing=run, view=view, entry=entry)
+    if path:
+        logger.info("[S2] Flood TIF generated: %s", path)
+    return path
 
 
-def resolve_s2(*, out_dir: str = "S2/output",
-               threshold: float | None = None, force: bool = False, entry: dict | None = None) -> Path | None:
-    """
-    Resolve o TIF de output do Sentinel-2.
-    Mesma lógica de reutilização/salvaguarda que o resolve_s1.
-    """
-    s2_out_dir = Path(out_dir)
-    expected = build_s2_output_path(s2_out_dir, entry=entry)
-    existing = expected if expected.exists() else None
-
-    if existing is None and entry is None:
-        existing = _find_latest_tif(s2_out_dir, "*flood*.tif")
-
-    if existing and not force and _ask_reuse(existing, "S2"):
-        logger.info("[s2] a usar ficheiro existente.")
-        return existing
-
-    logger.info("[s2] a iniciar S2Processor...")
-
-    try:
-        result = S2Processor(
-            out_dir=out_dir,
-            preview=False,
-            threshold=threshold,
-        ).run(run_processing=True, view=False, entry=entry)
-        path = _result_to_path(result)
-        if path:
-            return path
-    except PromptCancelledError:
-        raise
-    except Exception:
-        logger.exception("[s2] erro no processamento")
-
-    if existing:
-        logger.warning("[s2 salvaguarda] a usar ficheiro existente após falha do processador.")
-        return existing
-
-    logger.error("[s2] nenhum ficheiro de output encontrado.")
-    return None
+def run_fusion_pipeline(s1_path: Path, s2_path: Path, out_tif: str) -> Path | None:
+    logger.info("[Fusion] Fusing S1 and S2 results...")
+    logger.info("[Fusion] Target S1 TIF: %s", s1_path)
+    logger.info("[Fusion] Target S2 TIF: %s", s2_path)
+    
+    final = fuse_flood_outputs(
+        s1_flood_path=s1_path,
+        s2_flood_path=s2_path,
+        output_path=Path(out_tif),
+    )
+    logger.info("[Fusion] Done! Final output map: %s", final)
+    return final
 
 
-def _result_to_path(result) -> Path | None:
-    """Extrai um Path válido de um resultado de processador."""
-    if result is None:
-        return None
-    if hasattr(result, "output_path") and result.output_path:
-        return Path(result.output_path)
-    candidate = Path(str(result))
-    return candidate if candidate.exists() else None
+def handle_fusion_mode(args):
+    """Resolves input paths via arguments or fallback discovery, then runs fusion."""
+    if args.view:
+        logger.warning("Preview mode not implemented for the fusion sub-task.")
+        return
+
+    # S1 Target Resolution (Explicit argument -> Fallback to default directory)
+    s1_candidate = Path(args.s1_tif) if args.s1_tif else _find_latest_tif(Path("S1/output"))
+    if not s1_candidate or not s1_candidate.exists():
+        logger.error("[Fusion] Error: No valid Sentinel-1 flood TIF specified or found in 'S1/output'.")
+        sys.exit(5)
+
+    # S2 Target Resolution (Explicit argument -> Fallback to default directory)
+    s2_candidate = Path(args.s2_tif) if args.s2_tif else _find_latest_tif(Path("S2/output"))
+    if not s2_candidate or not s2_candidate.exists():
+        logger.error("[Fusion] Error: No valid Sentinel-2 flood TIF specified or found in 'S2/output'.")
+        sys.exit(5)
+
+    if not run_fusion_pipeline(s1_candidate, s2_candidate, args.out_tif):
+        sys.exit(5)
 
 
-def run_fusion(s1_path: Path, s2_path: Path, out_tif: str) -> Path | None:
-    """Corre a fusão e devolve o Path do ficheiro final, ou None em caso de erro."""
-    logger.info("[fusão] a fundir S1 + S2...")
-    try:
-        final = fuse_flood_outputs(
-            s1_flood_path=s1_path,
-            s2_flood_path=s2_path,
-            output_path=Path(out_tif),
-        )
-        logger.info("[fusão] concluída — ficheiro final: %s", final)
-        return final
-    except PromptCancelledError:
-        raise
-    except Exception:
-        logger.exception("[fusão] erro crítico")
-        return None
+def handle_automated_pipeline(args):
+    """Fully automated execution pipeline branching off acquired entry pairs."""
+    entries = acquireEntryFromLogWithBoth()
+    if not entries:
+        logger.error("[Auto] No data entries available in log.")
+        sys.exit(1)
+        
+    s1_entry, s2_entry = entries 
+    has_s1 = len(s1_entry.productFromIds()) == 2
+    has_s2 = len(s2_entry.productFromIds()) == 2
+
+    logger.info("[Auto] Available data pairs — S1: %s | S2: %s", has_s1, has_s2)
+
+    if not has_s1 and not has_s2:
+        logger.error("[Auto] Neither S1 nor S2 data pairs are available for processing.")
+        sys.exit(1)
+
+    s1_path = run_s1_pipeline(run=True, view=False, entry=s1_entry.to_dict()) if has_s1 else None
+    s2_path = run_s2_pipeline(run=True, view=False, threshold=args.threshold, entry=s2_entry.to_dict()) if has_s2 else None
+
+    if s1_path and s2_path:
+        if not run_fusion_pipeline(s1_path, s2_path, args.out_tif):
+            sys.exit(5)
+    elif s1_path:
+        logger.info("[Auto] Only Sentinel-1 processed — Output: %s", s1_path)
+    elif s2_path:
+        logger.info("[Auto] Only Sentinel-2 processed — Output: %s", s2_path)
+    else:
+        logger.error("[Auto] Target data was reported available, but no flood files were successfully produced.")
+        sys.exit(3)
 
 
-
-def build_parser():
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="SAR-MSI Unified Flood Detection Tool")
 
     mode = p.add_mutually_exclusive_group(required=True)
@@ -145,31 +121,23 @@ def build_parser():
     mode.add_argument("--view", action="store_true", help="Preview results")
 
     sub = p.add_subparsers(dest="source", required=True)
-    
-    # Pipeline Sentinel-1
+	
+    # Sentinel-1 Pipeline
     sub.add_parser("s1", help="Sentinel-1 pipeline")
 
-    # Pipeline Sentinel-2
+    # Sentinel-2 Pipeline
     s2 = sub.add_parser("s2", help="Sentinel-2 pipeline")
-    s2.add_argument("--s2-out", default="S2/output")
     s2.add_argument("--threshold", type=float, default=None)
 
-    # Pipeline de Fusão Isolada
-    fusion = sub.add_parser("fusion", help="Sentinel-1 and Sentinel-2 Data Fusion pipeline")
-    fusion.add_argument("--s1-tif", default="S1/output/Kherson_2026-06-06_15-17-32_flood.tif", help="Path to Sentinel-1 flood binary water mask TIF")
-    fusion.add_argument("--s2-tif", default="", help="Path to Sentinel-2 flood SCL-weighted TIF")
+    # Fusion Pipeline
+    fusion = sub.add_parser("fusion", help="Sentinel-1 and Sentinel-2 Fusion pipeline")
+    fusion.add_argument("--s1-tif", default=None, help="Path to Sentinel-1 flood TIF (Optional, auto-discovers if omitted)")
+    fusion.add_argument("--s2-tif", default=None, help="Path to Sentinel-2 flood TIF (Optional, auto-discovers if omitted)")
     fusion.add_argument("--out-tif", default="flood_fused_continuous.tif", help="Path for the final output TIF")
 
-    # Pipeline Completo Automático (S1 + S2 + Fusão de uma vez com bypass inteligente)
-    total = sub.add_parser("all", help="Run complete S1 + S2 + Fusion pipeline automatically")
-    total.add_argument("--s2-out", default="S2/output")
-    total.add_argument("--threshold", type=float, default=None)
-    total.add_argument("--out-tif", default="flood_fused_continuous.tif")
-
-    auto = sub.add_parser("auto", help="Run program with available data for the given request")
-    auto.add_argument("--s2-out", default="S2/output")
+    # Automated Pipeline
+    auto = sub.add_parser("auto", help="Run program automatically with available data for the given request")
     auto.add_argument("--threshold", type=float, default=None)
-    auto.add_argument("--out-tif", default="flood_fused_continuous.tif")
 
     return p
 
@@ -180,85 +148,28 @@ def main():
     try:
         match args.source:
             case "s1":
-                logger.info("Preparing Sentinel-1 processing...")
-                try:
-                    result = S1Processor().run(run_processing=args.run, view=args.view)
-                    if path := _result_to_path(result):
-                        logger.info("S1 flood TIF: %s", path)
-                except PromptCancelledError:
-                    raise
-                except Exception:
-                    logger.exception("Erro S1")
+                if not run_s1_pipeline(run=args.run, view=args.view):
                     sys.exit(3)
 
             case "s2":
-                logger.info("A preparar Sentinel-2...")
-                try:
-                    result = S2Processor(
-                        out_dir=args.s2_out,
-                        preview=args.view,
-                        threshold=args.threshold,
-                    ).run(run_processing=args.run, view=args.view)
-                    if path := _result_to_path(result):
-                        logger.info("S2 flood TIF: %s", path)
-                except PromptCancelledError:
-                    raise
-                except Exception:
-                    logger.exception("Erro S2")
-                    sys.exit(4) 
-
+                if not run_s2_pipeline(run=args.run, view=args.view, threshold=args.threshold):
+                    sys.exit(4)
 
             case "fusion":
-                if args.view:
-                    logger.warning("Preview não implementado para a fusão.")
-                    return
-                if args.run:
-                    s2_candidate = Path(args.s2_tif) if args.s2_tif else _find_latest_tif(Path("S2/output"), "*_flood.tif")
-                    if s2_candidate is None:
-                        logger.error("Nenhum output do S2 encontrado para a fusão.")
-                        sys.exit(5)
-                    if not run_fusion(Path(args.s1_tif), s2_candidate, args.out_tif):
-                        sys.exit(5)
+                handle_fusion_mode(args)
 
             case "auto":
-                entries = acquireEntryFromLogWithBoth()
-                if entries is None:
-                    logger.error("No entries availible.")
-                    sys.exit(1)
-                
-                s1_entry, s2_entry = entries 
-                hasS1 = len(s1_entry.productFromIds()) == 2
-                hasS2 = len(s2_entry.productFromIds()) == 2
+                handle_automated_pipeline(args)
 
-                logger.info("Dados disponíveis — S1: %s | S2: %s", hasS1, hasS2)
-
-                if not hasS1 and not hasS2:
-                    logger.error("Nenhum dado disponível.")
-                    sys.exit(1)
-
-                s1_path = resolve_s1(force=True, entry=s1_entry.to_dict()) if hasS1 else None
-                s2_path = resolve_s2(  
-                    out_dir=args.s2_out,
-                    threshold=args.threshold,
-                    force=True,
-                    entry=s2_entry.to_dict()
-                ) if hasS2 else None
-
-                if s1_path and s2_path:
-                    if not run_fusion(s1_path, s2_path, args.out_tif):
-                        sys.exit(5)
-                elif s1_path:
-                    logger.info("[auto] apenas S1 disponível — resultado: %s", s1_path)
-                elif s2_path:
-                    logger.info("[auto] apenas S2 disponível — resultado: %s", s2_path)
-                else:
-                    logger.error("[auto] nenhum ficheiro produzido apesar dos dados reportados.")
-                    sys.exit(3)
     except PromptCancelledError:
-        logger.info("Execução cancelada pelo utilizador.")
+        logger.info("Execution prompt safely cancelled by user.")
+    except Exception as e:
+        logger.critical("Fatal runtime exception on %s pipeline: %s", args.source.upper(), e, exc_info=True)
+        sys.exit(99)
+
 
 if __name__ == "__main__":
     import time
     start_time = time.time()
     main()
-    print("--- %s seconds ---" % (time.time() - start_time))
+    print(f"--- {time.time() - start_time:.4f} seconds ---")

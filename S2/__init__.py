@@ -1,4 +1,4 @@
-from S2 import config, discovery, pipeline, preview, processing, raster_io, pclasses
+from S2 import config, discovery, pipeline, preview, processing, raster_io, pclasses, workflow
 
 __all__ = [
 	"config",
@@ -7,5 +7,6 @@ __all__ = [
 	"preview",
 	"processing",
 	"raster_io",
-    "pclasses"
+	"pclasses",
+	"workflow",
 ]

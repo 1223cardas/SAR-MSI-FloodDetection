@@ -3,7 +3,6 @@ import math
 
 from .aclasses import Place, BBox, LogEntry
 from .acquisition_config import *
-from mainconfig import input
 
 
 def _requestRegionInfo(region_name: str, geolocator: Nominatim) -> list[Place]:

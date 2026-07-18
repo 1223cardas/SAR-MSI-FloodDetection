@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 
 from .aclasses import TimeFrame, LogEntry
 from .acquisition_config import *
-from mainconfig import input
 
 
 def _prompt_crisis_date() -> str:

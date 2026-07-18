@@ -1,4 +1,3 @@
-from pathlib import Path
 import csv
 
 from .aclasses import LogEntry

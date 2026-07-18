@@ -22,7 +22,7 @@ S1_REPEAT_CYCLE_DAYS = 12
 # if none is found within the initial window.
 MAX_BEFORE_REPEAT_CYCLES = 4
 
-# Server-side cloud cover filter for Sentinel-2 (percent). Set to None to disable.
+# Server-side cloud cover filter for Sentinel-2 (percent).
 DEFAULT_S2_CLOUD_COVER = 80
 
 SENTINELHUB_URL = "https://sh.dataspace.copernicus.eu/api/v1"
@@ -35,9 +35,6 @@ ODATA_ZIPPER_URL = "https://zipper.dataspace.copernicus.eu/odata/v1"
 
 KM_PER_DEG_LAT = 110.574
 KM_PER_DEG_LON = 111.320
-
-S1_COLLECTION = "sentinel-1-grd"
-S2_COLLECTION = "sentinel-2-l2a"
 
 CSV_FIELDNAMES = [
 	"collection",
