@@ -5,8 +5,8 @@ from Acquisition.acquireProducts import discoverProducts as shared_discoverProdu
 from Acquisition.acquireProducts import getEntry as shared_getEntry
 from common import checkEntryInOutput as shared_checkEntryInOutput
 
+from . import config
 from .pclasses import Bands, Product
-from .config import OUT_DIR
 
 from common import S2_COLLECTION
 
@@ -19,7 +19,7 @@ def discoverProducts(entry: dict) -> list[Product]:
 
 
 def build_output_file(base_name: str) -> Path:
-	return OUT_DIR / base_name
+	return config.OUT_DIR / base_name
 
 
 def checkEntryInOutput(entry: dict) -> tuple[str, str, Path | None]:

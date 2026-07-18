@@ -1,130 +1,127 @@
 ================================================================================
-              SAR-MSI FLOOD DETECTION - GUIA DE INSTALAÇÃO
+              SAR-MSI FLOOD DETECTION - INSTALLATION GUIDE
 ================================================================================
 
-Projeto para detecção de inundação usando produtos Sentinel-1 (SAR) e 
-Sentinel-2 (multiespetral).
+Flood detection project using Sentinel-1 (SAR) and Sentinel-2 (multispectral) 
+products.
 
 ================================================================================
-REQUISITOS DO SISTEMA
+SYSTEM REQUIREMENTS
 ================================================================================
 
-- Windows 10+ ou Linux (Ubuntu 18.04+)
+- Windows 10+ or Linux (Ubuntu 18.04+)
 - Python 3.10+
-- Java Runtime Environment (JRE) 8+ (necessário para SNAP)
-- ~20 GB de espaço livre em disco (para armazenagem de dados de satélite)
-- Conexão à internet para descarregar dados
+- Java Runtime Environment (JRE) 8+ (required for SNAP)
+- ~20 GB of free disk space (for satellite data storage)
+- 8GB RAM+
+- Internet connection to download data
 
 ================================================================================
-PASSO 1: INSTALAÇÃO DO PYTHON
+STEP 1: PYTHON INSTALLATION
 ================================================================================
 
-1. Verifique se tem Python instalado:
-   - Abra o terminal (Prompt de Comando ou PowerShell no Windows)
-   - Digite: python --version
+1. Check if Python is installed:
+   - Open the terminal (Command Prompt or PowerShell on Windows)
+   - Type: python --version
    
-2. Se não tem Python:
-   - Aceda a https://www.python.org/downloads/
-   - Faça download Python 3.10+ (recomendado)
-   - Execute o instalador
-   - IMPORTANTE: Marque a opção "Add Python to PATH"
+2. If you do not have Python:
+   - Go to https://www.python.org/downloads/
+   - Download Python 3.10+ (recommended)
+   - Run the installer
+   - IMPORTANT: Check the option "Add Python to PATH"
 
-3. Verifique a instalação:
+3. Verify the installation:
    - python --version
    - pip --version
 
 ================================================================================
-PASSO 2: CLONAR/DESCARREGAR O PROJETO
+STEP 2: CLONE/DOWNLOAD THE PROJECT
 ================================================================================
 
-1. Navegue até à pasta onde pretende instalar o projeto:
-   cd C:\Users\SEU_UTILIZADOR\Desktop
-   
-   (ou use a sua localização preferida)
+1. Navigate to the folder where you want to install the project:
 
-2. Descarregue o projeto:
-   - Se tem Git instalado:
-     git clone https://github.com/seu-repo/SAR-MSI-FloodDetection.git
+
+2. Download the project:
+   - If you have Git installed:
+     git clone https://github.com/your-repo/SAR-MSI-FloodDetection.git
      cd SAR-MSI-FloodDetection
    
-   - Caso contrário, descarregue o ZIP e extraia
+   - Otherwise, download the ZIP file and extract it
 
 ================================================================================
-PASSO 3: CRIAR AMBIENTE VIRTUAL PYTHON
+STEP 3: CREATE PYTHON VIRTUAL ENVIRONMENT
 ================================================================================
 
-1. No terminal, navegue até à pasta do projeto:
+1. In the terminal, navigate to the project folder:
    cd SAR-MSI-FloodDetection
 
-2. Crie um ambiente virtual:
+2. Create a virtual environment:
    python -m venv .venv
 
-3. Ative o ambiente virtual:
+3. Activate the virtual environment:
 
-   *** WINDOWS (Prompt de Comando) ***
+   *** WINDOWS (Command Prompt) ***
    .venv\Scripts\activate.bat
 
    *** WINDOWS (PowerShell) ***
    .venv\Scripts\Activate.ps1
-   (Se receber erro de permissões, execute:
+   (If you get a permissions error, run:
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser)
 
    *** LINUX ***
    source .venv/bin/activate
 
-4. Confirme que o ambiente está ativado (deve ver .venv no prompt):
+4. Confirm the environment is activated (you should see .venv in the prompt):
    (.venv) C:\Users\...\SAR-MSI-FloodDetection>
 
 ================================================================================
-PASSO 4: INSTALAR DEPENDÊNCIAS PYTHON
+STEP 4: INSTALL PYTHON DEPENDENCIES
 ================================================================================
 
-1. Atualize pip:
+1. Update pip:
    python -m pip install --upgrade pip
 
-2. Instale as dependências:
+2. Install the dependencies:
    pip install -r requirements.txt
 
-3. Espere pela conclusão (pode levar 5-10 minutos)
-
 ================================================================================
-PASSO 5: INSTALAR SNAP (NECESSÁRIO PARA SENTINEL-1)
+STEP 5: INSTALL SNAP (REQUIRED FOR SENTINEL-1)
 ================================================================================
 
-*** WINDOWS (Recomendado) ***
+*** WINDOWS (Recommended) ***
 
-1. Descarregue ESA SNAP:
-   - Aceda a https://step.esa.int/main/download/snap-download/
-   - Clique em "ESA SNAP" > Windows 64-bit installer
-   - Descarregue o ficheiro (.exe)
+1. Download ESA SNAP:
+   - Go to https://step.esa.int/main/download/snap-download/
+   - Click on "ESA SNAP" > Windows 64-bit installer
+   - Download the (.exe) file
 
-2. Execute o instalador:
-   - Duplo clique no ficheiro .exe
-   - Siga as instruções
-   - Instalação padrão (recomendado): C:\Program Files\esa-snap
+2. Run the installer:
+   - Double-click the .exe file
+   - Follow the instructions
+   - Default installation (recommended): C:\Program Files\esa-snap
 
-3. Confirme a instalação:
-   - Abra novo terminal/PowerShell
-   - Digite: "C:\Program Files\esa-snap\bin\gpt.exe" -v
-   - Deve aparecer a versão do SNAP
+3. Confirm the installation:
+   - Open a new terminal/PowerShell
+   - Type: "C:\Program Files\esa-snap\bin\gpt.exe" -h
+   - The SNAP version/help banner should appear
 
 *** LINUX ***
 
-1. Descarregue SNAP:
+1. Download SNAP:
    wget https://download.esa.int/esaup/sentinel/SNAP/esa-snap_all_linux-x86_64.tar.gz
 
-2. Extraia:
+2. Extract:
    tar -xzf esa-snap_all_linux-x86_64.tar.gz
    mv esa-snap ~/snap
 
-3. Confirme:
-   ~/snap/bin/gpt -v
+3. Confirm:
+   ~/snap/bin/gpt --diag
 
 ================================================================================
-PASSO 6: CONFIGURAR FICHEIRO .ENV
+STEP 6: CONFIGURE .ENV FILE
 ================================================================================
 
-1. Na pasta do projeto, copie o ficheiro .env.example:
+1. In the project folder, copy the .env.example file:
    
    *** WINDOWS (PowerShell) ***
    Copy-Item .env.example .env
@@ -132,116 +129,90 @@ PASSO 6: CONFIGURAR FICHEIRO .ENV
    *** LINUX ***
    cp .env.example .env
 
-2. Abra o ficheiro .env num editor de texto (Notepad, VS Code, etc):
+2. Open the .env file in a text editor (Notepad, VS Code, etc.):
    .env
 
-3. Preencha as seguintes variáveis:
+3. Fill in the following variables:
 
    a) SNAP_DIRECTORY
       - Windows: C:\Program Files\esa-snap
-      - Linux: /home/SEU_UTILIZADOR/snap
+      - Linux: /home/YOUR_USER/snap
 
-   b) Credenciais CDSE (Copernicus Data Space Ecosystem)
-      1. Aceda a https://dataspace.copernicus.eu/
-      2. Clique "Register" ou "Sign In"
-      3. Após login, vá a "Account Settings"
-      4. Copie seu username
-      5. Crie/copie sua password
-      6. Adicione no .env:
-         CDSE_USERNAME=seu-username
-         CDSE_PASSWORD=sua-password
+   b) CDSE Credentials (Copernicus Data Space Ecosystem)
+      1. Go to https://dataspace.copernicus.eu/
+      2. Click "Register" or "Sign In"
+      3. After logging in, go to "Account Settings"
+      4. Copy your username
+      5. Create/copy your password
+      6. Add to .env:
+         CDSE_USERNAME=your-username
+         CDSE_PASSWORD=your-password
 
-   c) Credenciais Sentinel Hub (OAuth)
-      1. Aceda a https://shapps.dataspace.copernicus.eu/dashboard/#/
-      2. Faça login com credenciais CDSE
-      3. Navegue para "OAuth Clients" ou "API Keys"
-      4. Clique "Create new" ou "New OAuth Client"
-      5. Nome: "SAR-MSI-FloodDetection"
-      6. Tipo: "Confidential"
-      7. Copie Client ID e Client Secret
-      8. Adicione no .env:
-         SH_CLIENT_ID=seu-client-id
-         SH_CLIENT_SECRET=seu-client-secret
+   c) Sentinel Hub Credentials (OAuth)
+      1. Go to https://shapps.dataspace.copernicus.eu/dashboard/#/
+      2. Log in with CDSE credentials
+      3. Navigate to "OAuth Clients" or "API Keys"
+      4. Click "Create new" or "New OAuth Client"
+      5. Name: "SAR-MSI-FloodDetection"
+      6. Type: "Confidential"
+      7. Copy Client ID and Client Secret
+      8. Add to .env:
+         SH_CLIENT_ID=your-client-id
+         SH_CLIENT_SECRET=your-client-secret
 
 ================================================================================
-PASSO 7: TESTAR INSTALAÇÃO
+STEP 7: TEST INSTALLATION
 ================================================================================
 
-1. Verifique o ambiente Python:
+1. Verify the Python environment:
    python --version
-   pip list | findstr rasterio
-   (ou: pip list | grep rasterio no Linux)
+   pip install -r requirements.txt
 
-2. Verifique SNAP:
-   "C:\Program Files\esa-snap\bin\gpt.exe" -v
-   (ou: /path/to/snap/bin/gpt -v no Linux)
+2. Verify SNAP:
+   [cmd]    "C:\Program Files\esa-snap\bin\gpt.exe" --diag
+   [pws]    & "C:\Program Files\esa-snap\bin\gpt.exe" --diag
+   [Linux]  /path/to/snap/bin/gpt --diag
 
-3. Execute testes unitários:
+3. Run unit tests:
    python -m pytest -v
 
 ================================================================================
-PASSO 8: USAR O PROJETO
+STEP 8: USE THE PROJECT
 ================================================================================
 
-Interface Gráfica (GUI):
-   python interface.py
+Graphical User Interface (GUI):
+   python app.py
 
-Linha de Comando (CLI):
+Command Line Interface (CLI):
    python main.py
 
-Para desativar o ambiente virtual quando terminar:
+To deactivate the virtual environment when finished:
    deactivate
 
 ================================================================================
-RESOLUÇÃO DE PROBLEMAS
+CREDITS AND REFERENCES
 ================================================================================
 
-PROBLEMA: "SNAP_DIRECTORY environment variable is not set"
-SOLUÇÃO: 
-   - Verifique se preencheu corretamente a variável SNAP_DIRECTORY em .env
-   - Certifique-se de que o caminho para SNAP é válido
-   - Reinicie o terminal/IDE
+Technologies Used:
+- Python 3.10+ - Programming language
+- SNAP (Sentinel Application Platform) - ESA for SAR processing
+- Rasterio - Raster data processing
+- NumPy/SciPy - Numerical computing
+- CustomTkinter (CTK) - Modern graphical interface
+- Copernicus Data Space Ecosystem - Sentinel-1 and Sentinel-2 satellite data
 
-PROBLEMA: "No module named 'rasterio'"
-SOLUÇÃO:
-   - Verifique se o ambiente virtual está ativado (deve ver .venv no prompt)
-   - Reinstale dependências: pip install -r requirements.txt
-
-PROBLEMA: "Permission denied" (Linux)
-SOLUÇÃO:
-   - Execute com permissões: chmod +x interface.py
-   - Ou execute com Python: python interface.py
-
-PROBLEMA: Não consegue descarregar dados de satélite
-SOLUÇÃO:
-   - Verifique credenciais CDSE em .env
-   - Confirme que tem conexão à internet
-   - Teste em https://dataspace.copernicus.eu/
-
-================================================================================
-CRÉDITOS E REFERÊNCIAS
-================================================================================
-
-Tecnologias Utilizadas:
-- Python 3.10+ - Linguagem de programação
-- SNAP (Sentinel Application Platform) - ESA para processamento SAR
-- Rasterio - Processamento de dados raster
-- NumPy/SciPy - Computação numérica
-- CustomTkinter (CTK) - Interface gráfica moderna
-- Copernicus Data Space Ecosystem - Dados de satélite Sentinel-1 e Sentinel-2
-
-Fontes de Dados:
+Data Sources:
 - Sentinel-1 (SAR) - European Commission & ESA
-- Sentinel-2 (Multiespetral) - European Commission & ESA
+- Sentinel-2 (Multispectral) - European Commission & ESA
 
-Ferramentas e Bibliotecas:
+Tools and Libraries:
 - ESA SNAP - https://step.esa.int/
 - Rasterio - https://rasterio.readthedocs.io/
 - NumPy - https://numpy.org/
 - CustomTkinter - https://github.com/TomSchimansky/CustomTkinter
 - Copernicus - https://copernicus.eu/
 
-Desenvolvedores:
-[Diogo Cardoso e Paulo Magalhães]
+Developers:
+[Diogo Cardoso and Paulo Magalhães]
 
-Versão do Projeto: 1.0
+Project Version: 1.0

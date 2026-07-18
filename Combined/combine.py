@@ -5,7 +5,7 @@ import numpy as np
 import rasterio
 from rasterio.warp import Resampling, reproject
 import threading
-from matplotlib import cm
+from matplotlib import colormaps
 from matplotlib import colors as mcolors
 
 
@@ -157,7 +157,7 @@ def fuse_flood_outputs(
 				vmax = vmin + 1.0
 
 			norm = mcolors.Normalize(vmin=vmin, vmax=vmax, clip=True)
-			cmap = cm.get_cmap("viridis")
+			cmap = colormaps["viridis"]
 			rgba = cmap(norm(np.nan_to_num(fused_continuous, nan=vmin)))
 
 			rgb = (rgba[:, :, :3] * 255).astype("uint8")

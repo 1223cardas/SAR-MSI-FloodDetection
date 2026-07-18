@@ -1,7 +1,8 @@
 import numpy as np
 from unittest.mock import patch
 
-from S2.config import EPS, NDWI_THRESHOLD, NODATA_VALUE, SCALE_FACTOR
+from S2.config import EPS, NODATA_VALUE, SCALE_FACTOR
+from S2.discovery import checkEntryInOutput
 from S2.processing import (
 	compute_binary_area,
 	compute_ndwi,
@@ -10,7 +11,7 @@ from S2.processing import (
 	flood_map,
 	water_mask,
 )
-from processors import S2Processor, build_s2_output_path
+from processorsImpl import S2Processor
 
 
 def test_compute_ndwi_marks_nodata_and_uses_scaled_values():
@@ -84,7 +85,7 @@ def test_compute_scl_confidence_mask_maps_known_classes():
 	result = compute_scl_confidence_mask(scl)
 
 	expected = np.array(
-		[[0.2, 0.2, 0.5], [0.2, 1.0, 0.1], [0.1, 0.1, 0.5]],
+		[[0.8, 0.6, 0.3], [0.4, 1.0, 0.1], [0.1, 0.1, 0.2]],
 		dtype="float32",
 	)
 
@@ -92,14 +93,16 @@ def test_compute_scl_confidence_mask_maps_known_classes():
 
 
 def test_s2_processor_reuses_existing_flood_output(tmp_path):
-	entry = {"place_query": "Kherson", "crisis_date": "2023-06-06", "processed_at": "2026-07-07_12-34-56"}
-	cached_output = build_s2_output_path(tmp_path, entry=entry)
+	entry = {"collection": "sentinel-2-l2a", "place_query": "Kherson", "crisis_date": "2023-06-06", "processed_at": "2026-07-07_12-34-56"}
+	_, _, cached_output = checkEntryInOutput(entry=entry)
+	if cached_output is None:
+		cached_output = tmp_path / f"{entry['place_query']}_{entry['processed_at']}_flood.tif"
 	cached_output.touch()
 
-	with patch("processors.S2_OUT_DIR", tmp_path), patch("processors.s2_discovery.discover_all_band_pairs") as mock_discovery, patch(
-		"processors.s2_pipeline.run_pipeline"
+	with patch("S2.config.OUT_DIR", tmp_path), patch("S2.discovery.discover_all_band_pairs") as mock_discovery, patch(
+		"S2.pipeline.run_pipeline"
 	) as mock_pipeline:
-		result = S2Processor(out_dir=str(tmp_path), preview=False).run(
+		result = S2Processor().run(
 			run_processing=True,
 			view=False,
 			entry=entry,

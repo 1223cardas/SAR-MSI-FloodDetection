@@ -1,25 +1,26 @@
 # SAR-MSI Flood Detection
 
-Projeto para deteção de inundação usando produtos Sentinel-1 (SAR) e Sentinel-2 (multiespetral).
+Flood detection project using Sentinel-1 (SAR) and Sentinel-2 (multispectral) products.
 
-## Visão geral
+## Overview
 
-### Estrutura do Projeto
-- **`Acquisition/`** — Download e gestão de produtos Sentinel-1 e Sentinel-2 via APIs ESA Copernicus
-- **`S1/`** — Processamento SAR (Sentinel-1) com workflows SNAP (GPT) para pré-processamento e máscara de inundação
-- **`S2/`** — Processamento óptico (Sentinel-2) com pipeline NDWI baseado em `rasterio`
-- **`Combined/`** — Combinação de resultados S1 e S2
-- **`app/`** — Interface gráfica (GUI) com CTK (CustomTkinter)
-- **`main.py`** — CLI unificada para processar dados
-- **`interface.py`** — Interface para interação com o sistema
-- **`mainconfig.py`** — Configuração centralizada do projeto
-- **`processors.py`** — Interfaces base para processadores (modularidade e testabilidade)
+### Project Structure
+- **`Acquisition/`** — Download and management of Sentinel-1 and Sentinel-2 products via ESA Copernicus APIs
+- **`app/`** — Graphical User Interface (GUI) built with CTK (CustomTkinter)
+- **`Combined/`** — Combination of S1 and S2 results
+- **`common/`** — Shared methods and classes used across multiple files
+- **`processorsImpl/`** — Interface for the implementation of Sentinel-1 and Sentinel-2 processors
+- **`S1/`** — SAR processing (Sentinel-1) using SNAP (GPT) workflows for pre-processing and flood masking
+- **`S2/`** — Multispectral processing (Sentinel-2) using an NDWI pipeline based on `rasterio`
+- **`main.py`** — Unified CLI for data processing
+- **`app.py`** — Application interface for system interaction
+- **`mainconfig.py`** — Centralized project configuration
 
-## Estrutura de Diretórios Detalhada
+## Detailed Directory Structure
 
 ```
 SAR-MSI-FloodDetection/
-├── Acquisition/          # Download e gestão de produtos Sentinel
+├── Acquisition/          # Sentinel products download and management
 │   ├── acquireProducts.py
 │   ├── modules/
 │   │   ├── aclasses.py
@@ -31,16 +32,16 @@ SAR-MSI-FloodDetection/
 │   │   ├── request.py
 │   │   ├── search_log.py
 │   │   └── utils.py
-│   └── search_log.csv~
-├── common/               # Metodos/Classes em comum
+│   └── search_log.csv
+├── common/               # Shared methods/classes
 │   ├── shared_config.py
 │   ├── shared_models.py
 │   └── shared_paths.py
-├── processorsImpl/       # Logica dos Processadores S1 e S2
+├── processorsImpl/       # S1 and S2 Processor logic
 │   ├── processorBase.py
 │   ├── S1Processor.py
 │   └── S2Processor.py
-├── S1/                   # Processamento Sentinel-1 (SAR)
+├── S1/                   # Sentinel-1 (SAR) processing
 │   ├── Processing/
 │   │   ├── modules/
 │   │   │   ├── discovery.py
@@ -55,8 +56,8 @@ SAR-MSI-FloodDetection/
 │   │   │   └── utils.py
 │   │   ├── processing.py
 │   │   └── workflows/
-│   └── output/           # Resultados (flood_*.dim)
-├── S2/                   # Processamento Sentinel-2 (óptico)
+│   └── output/           # Output results (*_flood.dim)
+├── S2/                   # Sentinel-2 (multispectral) processing
 │   ├── config.py
 │   ├── discovery.py
 │   ├── pclasses.py
@@ -65,110 +66,111 @@ SAR-MSI-FloodDetection/
 │   ├── processing.py
 │   ├── raster_io.py
 │   ├── raster_io.py
-│   └── output/           # Resultados (flood.tif)
-├── Combined/             # Combinação de resultados S1 + S2
+│   └── output/           # Output results (*_flood.tif)
+├── Combined/             # Combination of S1 + S2 results
 │   └── combine.py
-├── app/                  # Interface gráfica (CustomTkinter)
+├── app/                  # Graphical User Interface (CustomTkinter)
 │   ├── config.py
 │   ├── ctkapp.py
 │   ├── runner.py
 │   ├── streams.py
 │   └── ui_builder.py
-├── downloads/            # Armazenamento de dados de entrada
-├── tests/                # Testes unitários
-├── main.py               # CLI principal
-├── app.py                # Interface gráfica
-├── mainconfig.py         # Configuração centralizada
-└── requirements.txt      # Dependências Python
+├── downloads/            # Input data storage
+├── tests/                # Unit tests
+├── main.py               # Main CLI
+├── app.py                # Graphical interface
+├── mainconfig.py         # Centralized configuration
+└── requirements.txt      # Python dependencies
 ```
 
-## Instalação Rápida
+## Quick Installation
 
 ### Python Setup
 ```bash
-# Criar ambiente Python
+# Create Python environment
 python -m venv .venv
 
-# Ativar (Windows)
+# Activate (Windows)
 .venv\Scripts\activate.bat
 
-# Ativar (Linux)
+# Activate (Linux)
 source .venv/bin/activate
 
-# Instalar dependências
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### SNAP Installation (Obrigatório para Sentinel-1)
+### SNAP Installation (Required for Sentinel-1)
 
 #### Windows
 
-**Opção A: ESA SNAP Installer (Recomendado)**
-1. Download ESA SNAP de [https://step.esa.int/main/download/snap-download/](https://step.esa.int/main/download/snap-download/)
-2. Instalar no local padrão: `C:\Program Files\esa-snap`
-3. Adicionar a `.env` (copiar de `.env.example`):
+**Option A: ESA SNAP Installer (Recommended)**
+1. Download ESA SNAP from [https://step.esa.int/main/download/snap-download/](https://step.esa.int/main/download/snap-download/)
+2. Install in the default location: `C:\Program Files\esa-snap`
+3. Add to `.env` (copy from `.env.example`):
 	```
 	SNAP_DIRECTORY=C:\Program Files\esa-snap
 	```
 
-**Opção B: Localização manual**
-Se SNAP está instalado noutro local, apontar `.env` para a pasta contendo `bin\gpt.exe`:
+**Option B: Custom location**
+If SNAP is installed in another location, point `.env` to the folder containing `bin\gpt.exe`:
 ```
 SNAP_DIRECTORY=C:\Users\YourName\snap
 ```
 
 #### Linux
 ```bash
-# Download e instalar SNAP
+# Download and install SNAP
 wget https://download.esa.int/esaup/sentinel/SNAP/esa-snap_all_linux-x86_64.tar.gz
 tar -xzf esa-snap_all_linux-x86_64.tar.gz
 
-# Definir em .env
+# Set in .env
 SNAP_DIRECTORY=/path/to/snap
 ```
 
-## Configuração de Credenciais
+## Credentials Configuration
 
-Para descarregar dados de satélite (Sentinel-1 e Sentinel-2), é necessário configurar credenciais de autenticação. Crie um ficheiro `.env` na raiz do projeto (copie `.env.example` e preencha os valores):
+To download satellite data (Sentinel-1 and Sentinel-2), you need to configure authentication credentials. 
+Create a `.env` file in the project root (copy `.env.example` and fill in the values):
 
-### 1. Credenciais Copernicus Data Space Ecosystem (CDSE)
+### 1. Copernicus Data Space Ecosystem (CDSE) Credentials
 
-1. Aceda a https://dataspace.copernicus.eu/
-2. Clique em **"Register"** ou **"Sign In"** se já tem conta
-3. Após login, navegue para a secção de "Account Settings" ou "User Profile"
-4. Copie o seu **username** e crie/copie a sua **password**
-5. Adicione ao `.env`:
+1. Access https://dataspace.copernicus.eu/
+2. Click on **"Register"** or **"Sign In"** if you already have an account
+3. After logging in, navigate to the "Account Settings" or "User Profile" section
+4. Copy your **username** and create/copy your **password**
+5. Add to your `.env` file:
 	```
-	CDSE_USERNAME=seu-username
-	CDSE_PASSWORD=sua-password
+	CDSE_USERNAME=your-username
+	CDSE_PASSWORD=your-password
 	```
 
-### 2. Credenciais Sentinel Hub
+### 2. Sentinel Hub Credentials
 
-1. Aceda a https://shapps.dataspace.copernicus.eu/dashboard/#/
-2. Faça login com as suas credenciais CDSE
-3. Navegue para **"API Keys"** ou **"OAuth Clients"**
-4. Crie um novo cliente OAuth:
-	- Clique em **"Create new"** ou **"New OAuth Client"**
-	- Defina um nome (ex: "SAR-MSI-FloodDetection")
-	- Tipo: **"Public"** ou **"Confidential"** (recomendado: Confidential)
-5. Copie:
+1. Access https://shapps.dataspace.copernicus.eu/dashboard/#/
+2. Log in with your CDSE credentials
+3. Navigate to **"API Keys"** or **"OAuth Clients"**
+4. Create a new OAuth client:
+	- Click on **"Create new"** or **"New OAuth Client"**
+	- Set a name (ex: "SAR-MSI-FloodDetection")
+	- Type: **"Public"** or **"Confidential"** (recomendado: Confidential)
+5. Copy:
 	- **Client ID** → `SH_CLIENT_ID`
 	- **Client Secret** → `SH_CLIENT_SECRET`
-6. Adicione ao `.env`:
+6. Add to your `.env` file:
 	```
 	SH_CLIENT_ID=seu-client-id
 	SH_CLIENT_SECRET=seu-client-secret
 	```
 
-## Uso
+## Usage
 
-### Interface Gráfica (GUI)
+### Graphical User Interface (GUI)
 ```bash
-python interface.py
+python app.py
 ```
 
-### Linha de Comando (CLI)
+### Command Line Interface (CLI)
 ```bash
 python main.py
 ```
@@ -178,27 +180,23 @@ python main.py
 ### Verificar Ambiente Python
 ```bash
 python --version
-pip list | grep -E "rasterio|numpy|python-dotenv"
+pip install -r requirements.txt
 ```
 
-### Verificar SNAP (se instalado localmente)
+### Verify SNAP
 ```bash
-# Windows
-"C:\Program Files\esa-snap\bin\gpt.exe" -v
+# Windows 
+
+# (command prompt [cmd])
+"C:\Program Files\esa-snap\bin\gpt.exe" --diag
+# Powershell
+& "C:\Program Files\esa-snap\bin\gpt.exe" --diag
 
 # Linux
-/path/to/snap/bin/gpt -v
+/path/to/snap/bin/gpt --diag
 ```
 
-### Executar Testes
+### Run Tests
 ```bash
 python -m pytest -v
 ```
-
-## Resolução de Problemas
-
-**Problema**: `SNAP_DIRECTORY environment variable is not set`
-- **Solução**: Criar ficheiro `.env` na raiz do projeto com:
-  ```
-  SNAP_DIRECTORY=C:\Program Files\esa-snap
-  ```
