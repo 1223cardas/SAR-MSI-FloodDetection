@@ -60,11 +60,12 @@ def runProcessing(entry: dict, gptExec: list[str]) -> list[Product]:
     return result
 
 
-def runStacking(cached_products: list[Product], gptExec: list[str]) -> Path:
+def runStacking(entry: dict, cached_products: list[Product], gptExec: list[str]) -> Path:
     print("Stacking products...")
     date = "_".join(p.parseDate() for p in cached_products)
+    stack_name = f"{entry.get('place_query')}_{date}_stack"
 
-    stack_path = build_cache_file("stack_" + date)
+    stack_path = build_cache_file(stack_name)
 
     stackDim_file, stackDimExists = checkSuffixForFile(stack_path, ".dim")
     if stackDimExists:

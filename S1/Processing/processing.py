@@ -32,7 +32,7 @@ def processProducts(gptExec: list[str], entry: dict | None = None, progress_call
 
 	# 2. Run stacking workflow to prepare variables for flood mask creation
 	progress(0.5, "Stacking products...")
-	dimStack_file = runStacking(cachedProducts, gptExec)
+	dimStack_file = runStacking(entry, cachedProducts, gptExec)
 
 	# 3. Create flood mask product
 	progress(0.7, "Creating flood mask...")

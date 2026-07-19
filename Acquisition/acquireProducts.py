@@ -123,10 +123,10 @@ def _setupEntry(entry: LogEntry, collection: str) -> LogEntry:
 	print(f"Checking for products using {collection}")
 
 	products = requestProducts(resultEntry, collection)
-	saveLogEntry(resultEntry)
 	if len(products) != 2:
 		print(f"No products found for collection {collection}. Skipping download queue.")
 		return LogEntry()
+	saveLogEntry(resultEntry)
 
 	return resultEntry
 
