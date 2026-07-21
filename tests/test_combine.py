@@ -36,6 +36,31 @@ def test_fuse_flood_bits_sums_continuous_weights():
 	np.testing.assert_allclose(result, expected)
 
 
+def test_fuse_flood_bits_keeps_s2_only_water():
+	s1 = np.zeros((20, 20), dtype="uint8")
+	s2 = np.zeros((20, 20), dtype="float32")
+	s2[3:6, 4:7] = 1.0
+
+	result = fuse_flood_bits(s1, s2, min_blob_px=1)
+
+	expected = np.zeros((20, 20), dtype="float32")
+	expected[3:6, 4:7] = 1.0
+	np.testing.assert_allclose(result, expected)
+
+
+def test_fuse_flood_bits_keeps_multiplication_for_partial_overlap():
+	s1 = np.zeros((20, 20), dtype="uint8")
+	s1[2:5, 2:5] = 1
+	s2 = np.zeros((20, 20), dtype="float32")
+	s2[2:5, 2:5] = 0.4
+
+	result = fuse_flood_bits(s1, s2, min_blob_px=1)
+
+	expected = np.zeros((20, 20), dtype="float32")
+	expected[2:5, 2:5] = 0.4
+	np.testing.assert_allclose(result, expected)
+
+
 def test_fuse_flood_outputs_writes_float32_sum(tmp_path: Path):
 	s1_path = tmp_path / "s1_flood.tif"
 	s2_path = tmp_path / "s2_flood.tif"

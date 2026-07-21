@@ -72,11 +72,12 @@ def fuse_flood_bits(s1_flood: np.ndarray, s2_flood: np.ndarray,
 	s1 = np.where(np.isfinite(s1_flood) & (s1_flood > 0), 1.0, 0.0).astype("float32")
 	s2 = np.where(np.isfinite(s2_flood), s2_flood, 0.0).astype("float32")
 	s2_available = (s2 > 0.1).astype("float32")
+	s2_certain_water = np.isclose(s2, 1.0) & (s1 <= 0)
 
 	fused = np.where(
 		s2_available > 0,
-		s1 * s2,
-		s1 * 0.5
+		np.where(s2_certain_water, 1.0, s1 * s2),
+		np.where(s1 > 0, 0.5, 0.0)
 	).astype("float32")
 
 	# Remove isolated small blobs — these are field-level false positives,

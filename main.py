@@ -138,6 +138,7 @@ def build_parser() -> argparse.ArgumentParser:
     # Automated Pipeline
     auto = sub.add_parser("auto", help="Run program automatically with available data for the given request")
     auto.add_argument("--threshold", type=float, default=None)
+    auto.add_argument("--out-tif", default="flood_fused_continuous.tif", help="Path for the final output TIF")
 
     return p
 
