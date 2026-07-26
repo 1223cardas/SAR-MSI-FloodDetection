@@ -184,7 +184,7 @@ def compute_elevation_ceiling(data_folder: Path, elev_name: str, lc_name: str, o
     surface = gaussian_filter((surface + surge_buffer_m).astype(np.float32), sigma=40)
     
     meta = {
-        'driver': 'GTiff', 'dtype': rasterio.float32, 'nodata': np.nan,
+        'driver': 'GTiff', 'dtype': rasterio.float32, 'nodata': -9999.0,
         'width': w, 'height': h, 'count': 1, 'crs': crs, 'transform': transform
     }
     
