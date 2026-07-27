@@ -1,7 +1,9 @@
 from pathlib import Path
 import os
 import subprocess
+import platform
 
+GPT = "gpt.exe" if platform.system() == "Windows" else "gpt"
 
 def getExecutable() -> list[str]:
     """Locate the SNAP GPT executable by checking the SNAP_DIRECTORY environment variable."""
@@ -11,7 +13,7 @@ def getExecutable() -> list[str]:
     # If SNAP_DIRECTORY is set, check if gpt.exe exists there
     if snap_dir:
         candidate = Path(snap_dir)
-        gpt_exec = candidate / "bin" / "gpt.exe"
+        gpt_exec = candidate / "bin" / GPT
 
         if gpt_exec.exists():
             print(f"Found at: {gpt_exec}")
@@ -40,6 +42,7 @@ def execute_command(
     success_message: str,
     error_message: str
 ) -> bool:
+    print(f"Executing command: {' '.join(cmd)}")
     try:
         proc = subprocess.Popen(
             cmd,
