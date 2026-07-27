@@ -17,7 +17,7 @@ def get_available_tifs(folder_path: str) -> list[str]:
 	if not path.exists():
 		return []
 	
-	tifs = [str(p.absolute()) for p in path.glob("*.tif") if not p.name.endswith(".preview.png")]
+	tifs = [str(p.absolute()) for p in path.glob("*flood.tif") if not p.name.endswith(".preview.png")]
 	tifs.sort(key=lambda p: Path(p).stat().st_mtime, reverse=True)
 	return tifs
 
